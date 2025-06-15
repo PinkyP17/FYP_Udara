@@ -26,7 +26,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import {
   Line,
   LineChart,
@@ -44,6 +44,29 @@ import {
 import { UserButton, useUser } from "@clerk/nextjs";
 import AirQualityMap from "@/components/air-quality-map";
 import Link from "next/link";
+
+const WEATHER_API_KEY = process.env.NEXT_PUBLIC_WEATHER_API_KEY;
+const WEATHER_API_BASE = "https://api.weatherapi.com/v1";
+
+// Type definitions for better TypeScript support
+interface WeatherData {
+  temperature: number;
+  humidity: number;
+  windSpeed: number;
+  visibility: number;
+  condition?: string;
+  icon?: string;
+  feelsLike?: number;
+  uvIndex?: number;
+  airQuality?: {
+    pm25: number;
+    pm10: number;
+    o3: number;
+    no2: number;
+    so2: number;
+    co: number;
+  } | null;
+}
 
 // Mock locations around University Malaya area
 const locations = [
@@ -298,15 +321,99 @@ export default function Dashboard() {
   const [selectedLocation, setSelectedLocation] = useState<
     (typeof locations)[0] | null
   >(null);
+
+  // Fixed: Include pm10 back in the visiblePollutants state
   const [visiblePollutants, setVisiblePollutants] = useState({
     pm25: true,
-    pm10: true,
+    pm10: true, // Make sure this is included
     o3: true,
     no2: true,
     so2: true,
     co: true,
   });
+
+  // State for weather data with proper TypeScript types
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState<boolean>(false);
+  const [weatherError, setWeatherError] = useState<string | null>(null);
+
   const { user } = useUser();
+
+  // Function to fetch weather data
+  const fetchWeatherData = async (
+    lat: number,
+    lng: number,
+    locationName: string
+  ) => {
+    if (!WEATHER_API_KEY) {
+      console.error(
+        "Weather API key not found. Make sure NEXT_PUBLIC_WEATHER_API_KEY is set in your .env.local file"
+      );
+      setWeatherError("API key not configured");
+      return;
+    }
+
+    setWeatherLoading(true);
+    setWeatherError(null);
+
+    try {
+      // Using lat,lng for precise location
+      const response = await fetch(
+        `${WEATHER_API_BASE}/current.json?key=${WEATHER_API_KEY}&q=${lat},${lng}&aqi=yes`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Weather API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Transform the API response to match your current data structure
+      const transformedWeather: WeatherData = {
+        temperature: Math.round(data.current.temp_c),
+        humidity: data.current.humidity,
+        windSpeed: Math.round(data.current.wind_kph),
+        visibility: data.current.vis_km,
+        // Additional data you might want to use
+        condition: data.current.condition.text,
+        icon: data.current.condition.icon,
+        feelsLike: Math.round(data.current.feelslike_c),
+        uvIndex: data.current.uv,
+        // Air quality data is also available if you want to use it
+        airQuality: data.current.air_quality
+          ? {
+              pm25: data.current.air_quality.pm2_5,
+              pm10: data.current.air_quality.pm10,
+              o3: data.current.air_quality.o3,
+              no2: data.current.air_quality.no2,
+              so2: data.current.air_quality.so2,
+              co: data.current.air_quality.co,
+            }
+          : null,
+      };
+
+      setWeatherData(transformedWeather);
+    } catch (error) {
+      console.error("Error fetching weather data:", error);
+      setWeatherError(error instanceof Error ? error.message : "Unknown error");
+    } finally {
+      setWeatherLoading(false);
+    }
+  };
+
+  // Effect to fetch weather when location changes
+  useEffect(() => {
+    if (selectedLocation) {
+      fetchWeatherData(
+        selectedLocation.lat,
+        selectedLocation.lng,
+        selectedLocation.name
+      );
+    } else {
+      // Fetch weather for University Malaya as default
+      fetchWeatherData(3.1319, 101.6569, "University Malaya");
+    }
+  }, [selectedLocation]);
 
   // Get current location data based on selected location
   const currentLocationData = useMemo(() => {
@@ -316,6 +423,14 @@ export default function Dashboard() {
       defaultOverviewData
     );
   }, [selectedLocation]);
+
+  // Use real weather data if available, fallback to mock data
+  const currentWeatherData = useMemo(() => {
+    if (weatherData) {
+      return weatherData;
+    }
+    return currentLocationData.weather;
+  }, [weatherData, currentLocationData.weather]);
 
   // Calculate average AQI when no location is selected
   const averageAQI = useMemo(() => {
@@ -328,7 +443,7 @@ export default function Dashboard() {
   const togglePollutant = (pollutant: string) => {
     setVisiblePollutants((prev) => ({
       ...prev,
-      [pollutant]: !prev[pollutant],
+      [pollutant]: !prev[pollutant as keyof typeof prev],
     }));
   };
 
@@ -554,7 +669,27 @@ export default function Dashboard() {
               {/* Weather Conditions */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Weather</CardTitle>
+                  <CardTitle className="flex items-center justify-between">
+                    Weather
+                    {weatherLoading && (
+                      <div className="text-xs text-gray-500">Loading...</div>
+                    )}
+                    {weatherError && (
+                      <div className="text-xs text-red-500">
+                        Error loading weather
+                      </div>
+                    )}
+                  </CardTitle>
+                  {weatherData?.condition && (
+                    <CardDescription className="flex items-center space-x-2">
+                      <img
+                        src={weatherData.icon}
+                        alt={weatherData.condition}
+                        className="w-6 h-6"
+                      />
+                      <span>{weatherData.condition}</span>
+                    </CardDescription>
+                  )}
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -563,7 +698,12 @@ export default function Dashboard() {
                       <span className="text-sm">Temperature</span>
                     </div>
                     <span className="font-semibold">
-                      {currentLocationData.weather.temperature}°C
+                      {currentWeatherData.temperature}°C
+                      {weatherData?.feelsLike && (
+                        <span className="text-xs text-gray-500 ml-1">
+                          (feels {weatherData.feelsLike}°C)
+                        </span>
+                      )}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -572,7 +712,7 @@ export default function Dashboard() {
                       <span className="text-sm">Humidity</span>
                     </div>
                     <span className="font-semibold">
-                      {currentLocationData.weather.humidity}%
+                      {currentWeatherData.humidity}%
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -581,7 +721,7 @@ export default function Dashboard() {
                       <span className="text-sm">Wind Speed</span>
                     </div>
                     <span className="font-semibold">
-                      {currentLocationData.weather.windSpeed} km/h
+                      {currentWeatherData.windSpeed} km/h
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -590,9 +730,20 @@ export default function Dashboard() {
                       <span className="text-sm">Visibility</span>
                     </div>
                     <span className="font-semibold">
-                      {currentLocationData.weather.visibility} km
+                      {currentWeatherData.visibility} km
                     </span>
                   </div>
+                  {weatherData?.uvIndex && (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div className="h-4 w-4 rounded-full bg-yellow-400" />
+                        <span className="text-sm">UV Index</span>
+                      </div>
+                      <span className="font-semibold">
+                        {weatherData.uvIndex}
+                      </span>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -659,7 +810,11 @@ export default function Dashboard() {
                     >
                       <Checkbox
                         id={pollutant}
-                        checked={visiblePollutants[pollutant]}
+                        checked={
+                          visiblePollutants[
+                            pollutant as keyof typeof visiblePollutants
+                          ]
+                        }
                         onCheckedChange={() => togglePollutant(pollutant)}
                       />
                       <label
@@ -701,7 +856,9 @@ export default function Dashboard() {
                     <Legend />
                     {Object.entries(pollutantColors).map(
                       ([pollutant, color]) =>
-                        visiblePollutants[pollutant] && (
+                        visiblePollutants[
+                          pollutant as keyof typeof visiblePollutants
+                        ] && (
                           <Line
                             key={pollutant}
                             type="monotone"
