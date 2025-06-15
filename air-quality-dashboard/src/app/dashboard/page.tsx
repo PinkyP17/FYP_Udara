@@ -60,7 +60,6 @@ interface WeatherData {
   uvIndex?: number;
   airQuality?: {
     pm25: number;
-    pm10: number;
     o3: number;
     no2: number;
     so2: number;
@@ -104,9 +103,9 @@ const locations = [
   },
   {
     id: 5,
-    name: "Bangsar",
-    lat: 3.1285,
-    lng: 101.6711,
+    name: "Negeri Sembilan",
+    lat: 2.8707,
+    lng: 102.2548,
     aqi: 88,
     status: "moderate",
   },
@@ -116,7 +115,6 @@ const locations = [
 const defaultOverviewData = {
   metrics: {
     pm25: { value: 34.8, unit: "μg/m³", status: "moderate", trend: "stable" },
-    pm10: { value: 58.9, unit: "μg/m³", status: "moderate", trend: "stable" },
     o3: { value: 42.1, unit: "μg/m³", status: "good", trend: "stable" },
     no2: { value: 27.6, unit: "μg/m³", status: "good", trend: "stable" },
     so2: { value: 12.8, unit: "μg/m³", status: "good", trend: "stable" },
@@ -129,14 +127,14 @@ const defaultOverviewData = {
     visibility: 9.0,
   },
   trendData: [
-    { time: "00:00", pm25: 32, pm10: 56, o3: 40, no2: 26, so2: 12, co: 0.7 },
-    { time: "03:00", pm25: 29, pm10: 53, o3: 37, no2: 24, so2: 11, co: 0.6 },
-    { time: "06:00", pm25: 35, pm10: 59, o3: 42, no2: 28, so2: 13, co: 0.8 },
-    { time: "09:00", pm25: 41, pm10: 65, o3: 47, no2: 32, so2: 15, co: 1.0 },
-    { time: "12:00", pm25: 38, pm10: 62, o3: 44, no2: 30, so2: 14, co: 0.9 },
-    { time: "15:00", pm25: 35, pm10: 59, o3: 42, no2: 28, so2: 13, co: 0.8 },
-    { time: "18:00", pm25: 39, pm10: 63, o3: 40, no2: 29, so2: 14, co: 0.9 },
-    { time: "21:00", pm25: 33, pm10: 57, o3: 38, no2: 27, so2: 12, co: 0.7 },
+    { time: "00:00", pm25: 32, o3: 40, no2: 26, so2: 12, co: 0.7 },
+    { time: "03:00", pm25: 29, o3: 37, no2: 24, so2: 11, co: 0.6 },
+    { time: "06:00", pm25: 35, o3: 42, no2: 28, so2: 13, co: 0.8 },
+    { time: "09:00", pm25: 41, o3: 47, no2: 32, so2: 15, co: 1.0 },
+    { time: "12:00", pm25: 38, o3: 44, no2: 30, so2: 14, co: 0.9 },
+    { time: "15:00", pm25: 35, o3: 42, no2: 28, so2: 13, co: 0.8 },
+    { time: "18:00", pm25: 39, o3: 40, no2: 29, so2: 14, co: 0.9 },
+    { time: "21:00", pm25: 33, o3: 38, no2: 27, so2: 12, co: 0.7 },
   ],
 };
 
@@ -146,7 +144,6 @@ const locationData = {
     // University Malaya
     metrics: {
       pm25: { value: 32.1, unit: "μg/m³", status: "moderate", trend: "down" },
-      pm10: { value: 55.3, unit: "μg/m³", status: "moderate", trend: "stable" },
       o3: { value: 38.7, unit: "μg/m³", status: "good", trend: "up" },
       no2: { value: 24.2, unit: "μg/m³", status: "good", trend: "down" },
       so2: { value: 11.8, unit: "μg/m³", status: "good", trend: "stable" },
@@ -159,21 +156,20 @@ const locationData = {
       visibility: 9.2,
     },
     trendData: [
-      { time: "00:00", pm25: 28, pm10: 52, o3: 35, no2: 22, so2: 10, co: 0.6 },
-      { time: "03:00", pm25: 25, pm10: 48, o3: 32, no2: 20, so2: 9, co: 0.5 },
-      { time: "06:00", pm25: 32, pm10: 55, o3: 39, no2: 24, so2: 12, co: 0.7 },
-      { time: "09:00", pm25: 38, pm10: 62, o3: 45, no2: 28, so2: 14, co: 0.9 },
-      { time: "12:00", pm25: 35, pm10: 58, o3: 42, no2: 26, so2: 13, co: 0.8 },
-      { time: "15:00", pm25: 32, pm10: 55, o3: 39, no2: 24, so2: 12, co: 0.7 },
-      { time: "18:00", pm25: 36, pm10: 60, o3: 37, no2: 25, so2: 13, co: 0.8 },
-      { time: "21:00", pm25: 30, pm10: 53, o3: 35, no2: 23, so2: 11, co: 0.7 },
+      { time: "00:00", pm25: 28, o3: 35, no2: 22, so2: 10, co: 0.6 },
+      { time: "03:00", pm25: 25, o3: 32, no2: 20, so2: 9, co: 0.5 },
+      { time: "06:00", pm25: 32, o3: 39, no2: 24, so2: 12, co: 0.7 },
+      { time: "09:00", pm25: 38, o3: 45, no2: 28, so2: 14, co: 0.9 },
+      { time: "12:00", pm25: 35, o3: 42, no2: 26, so2: 13, co: 0.8 },
+      { time: "15:00", pm25: 32, o3: 39, no2: 24, so2: 12, co: 0.7 },
+      { time: "18:00", pm25: 36, o3: 37, no2: 25, so2: 13, co: 0.8 },
+      { time: "21:00", pm25: 30, o3: 35, no2: 23, so2: 11, co: 0.7 },
     ],
   },
   2: {
     // Petaling Jaya
     metrics: {
       pm25: { value: 38.5, unit: "μg/m³", status: "moderate", trend: "up" },
-      pm10: { value: 62.1, unit: "μg/m³", status: "moderate", trend: "up" },
       o3: { value: 45.2, unit: "μg/m³", status: "good", trend: "stable" },
       no2: { value: 29.8, unit: "μg/m³", status: "good", trend: "up" },
       so2: { value: 14.3, unit: "μg/m³", status: "good", trend: "up" },
@@ -186,21 +182,20 @@ const locationData = {
       visibility: 8.8,
     },
     trendData: [
-      { time: "00:00", pm25: 35, pm10: 58, o3: 42, no2: 27, so2: 13, co: 0.8 },
-      { time: "03:00", pm25: 32, pm10: 55, o3: 40, no2: 25, so2: 12, co: 0.7 },
-      { time: "06:00", pm25: 39, pm10: 62, o3: 45, no2: 30, so2: 14, co: 0.9 },
-      { time: "09:00", pm25: 45, pm10: 68, o3: 50, no2: 35, so2: 16, co: 1.1 },
-      { time: "12:00", pm25: 42, pm10: 65, o3: 48, no2: 32, so2: 15, co: 1.0 },
-      { time: "15:00", pm25: 39, pm10: 62, o3: 45, no2: 30, so2: 14, co: 0.9 },
-      { time: "18:00", pm25: 43, pm10: 67, o3: 43, no2: 31, so2: 15, co: 1.0 },
-      { time: "21:00", pm25: 37, pm10: 60, o3: 41, no2: 28, so2: 13, co: 0.8 },
+      { time: "00:00", pm25: 35, o3: 42, no2: 27, so2: 13, co: 0.8 },
+      { time: "03:00", pm25: 32, o3: 40, no2: 25, so2: 12, co: 0.7 },
+      { time: "06:00", pm25: 39, o3: 45, no2: 30, so2: 14, co: 0.9 },
+      { time: "09:00", pm25: 45, o3: 50, no2: 35, so2: 16, co: 1.1 },
+      { time: "12:00", pm25: 42, o3: 48, no2: 32, so2: 15, co: 1.0 },
+      { time: "15:00", pm25: 39, o3: 45, no2: 30, so2: 14, co: 0.9 },
+      { time: "18:00", pm25: 43, o3: 43, no2: 31, so2: 15, co: 1.0 },
+      { time: "21:00", pm25: 37, o3: 41, no2: 28, so2: 13, co: 0.8 },
     ],
   },
   3: {
     // KLCC
     metrics: {
       pm25: { value: 42.8, unit: "μg/m³", status: "moderate", trend: "up" },
-      pm10: { value: 68.4, unit: "μg/m³", status: "moderate", trend: "up" },
       o3: { value: 48.1, unit: "μg/m³", status: "good", trend: "stable" },
       no2: { value: 35.7, unit: "μg/m³", status: "good", trend: "up" },
       so2: { value: 16.2, unit: "μg/m³", status: "good", trend: "up" },
@@ -213,21 +208,20 @@ const locationData = {
       visibility: 8.5,
     },
     trendData: [
-      { time: "00:00", pm25: 38, pm10: 62, o3: 45, no2: 32, so2: 15, co: 1.0 },
-      { time: "03:00", pm25: 35, pm10: 58, o3: 42, no2: 30, so2: 14, co: 0.9 },
-      { time: "06:00", pm25: 43, pm10: 68, o3: 48, no2: 36, so2: 16, co: 1.1 },
-      { time: "09:00", pm25: 50, pm10: 75, o3: 55, no2: 42, so2: 18, co: 1.3 },
-      { time: "12:00", pm25: 47, pm10: 72, o3: 52, no2: 38, so2: 17, co: 1.2 },
-      { time: "15:00", pm25: 43, pm10: 68, o3: 48, no2: 36, so2: 16, co: 1.1 },
-      { time: "18:00", pm25: 48, pm10: 74, o3: 46, no2: 37, so2: 17, co: 1.2 },
-      { time: "21:00", pm25: 41, pm10: 65, o3: 44, no2: 34, so2: 15, co: 1.0 },
+      { time: "00:00", pm25: 38, o3: 45, no2: 32, so2: 15, co: 1.0 },
+      { time: "03:00", pm25: 35, o3: 42, no2: 30, so2: 14, co: 0.9 },
+      { time: "06:00", pm25: 43, o3: 48, no2: 36, so2: 16, co: 1.1 },
+      { time: "09:00", pm25: 50, o3: 55, no2: 42, so2: 18, co: 1.3 },
+      { time: "12:00", pm25: 47, o3: 52, no2: 38, so2: 17, co: 1.2 },
+      { time: "15:00", pm25: 43, o3: 48, no2: 36, so2: 16, co: 1.1 },
+      { time: "18:00", pm25: 48, o3: 46, no2: 37, so2: 17, co: 1.2 },
+      { time: "21:00", pm25: 41, o3: 44, no2: 34, so2: 15, co: 1.0 },
     ],
   },
   4: {
     // Subang Jaya
     metrics: {
       pm25: { value: 26.3, unit: "μg/m³", status: "good", trend: "down" },
-      pm10: { value: 48.7, unit: "μg/m³", status: "good", trend: "down" },
       o3: { value: 35.4, unit: "μg/m³", status: "good", trend: "stable" },
       no2: { value: 21.8, unit: "μg/m³", status: "good", trend: "down" },
       so2: { value: 9.5, unit: "μg/m³", status: "good", trend: "down" },
@@ -240,21 +234,20 @@ const locationData = {
       visibility: 9.8,
     },
     trendData: [
-      { time: "00:00", pm25: 24, pm10: 45, o3: 32, no2: 20, so2: 8, co: 0.5 },
-      { time: "03:00", pm25: 22, pm10: 42, o3: 30, no2: 18, so2: 7, co: 0.4 },
-      { time: "06:00", pm25: 26, pm10: 49, o3: 35, no2: 22, so2: 9, co: 0.6 },
-      { time: "09:00", pm25: 30, pm10: 55, o3: 40, no2: 25, so2: 11, co: 0.7 },
-      { time: "12:00", pm25: 28, pm10: 52, o3: 38, no2: 23, so2: 10, co: 0.6 },
-      { time: "15:00", pm25: 26, pm10: 49, o3: 35, no2: 22, so2: 9, co: 0.6 },
-      { time: "18:00", pm25: 29, pm10: 54, o3: 33, no2: 24, so2: 10, co: 0.7 },
-      { time: "21:00", pm25: 25, pm10: 47, o3: 31, no2: 21, so2: 8, co: 0.5 },
+      { time: "00:00", pm25: 24, o3: 32, no2: 20, so2: 8, co: 0.5 },
+      { time: "03:00", pm25: 22, o3: 30, no2: 18, so2: 7, co: 0.4 },
+      { time: "06:00", pm25: 26, o3: 35, no2: 22, so2: 9, co: 0.6 },
+      { time: "09:00", pm25: 30, o3: 40, no2: 25, so2: 11, co: 0.7 },
+      { time: "12:00", pm25: 28, o3: 38, no2: 23, so2: 10, co: 0.6 },
+      { time: "15:00", pm25: 26, o3: 35, no2: 22, so2: 9, co: 0.6 },
+      { time: "18:00", pm25: 29, o3: 33, no2: 24, so2: 10, co: 0.7 },
+      { time: "21:00", pm25: 25, o3: 31, no2: 21, so2: 8, co: 0.5 },
     ],
   },
   5: {
     // Bangsar
     metrics: {
       pm25: { value: 36.9, unit: "μg/m³", status: "moderate", trend: "stable" },
-      pm10: { value: 59.2, unit: "μg/m³", status: "moderate", trend: "up" },
       o3: { value: 41.6, unit: "μg/m³", status: "good", trend: "down" },
       no2: { value: 28.4, unit: "μg/m³", status: "good", trend: "stable" },
       so2: { value: 13.1, unit: "μg/m³", status: "good", trend: "up" },
@@ -267,21 +260,20 @@ const locationData = {
       visibility: 8.9,
     },
     trendData: [
-      { time: "00:00", pm25: 33, pm10: 56, o3: 38, no2: 26, so2: 12, co: 0.7 },
-      { time: "03:00", pm25: 30, pm10: 53, o3: 36, no2: 24, so2: 11, co: 0.6 },
-      { time: "06:00", pm25: 37, pm10: 59, o3: 42, no2: 28, so2: 13, co: 0.8 },
-      { time: "09:00", pm25: 42, pm10: 65, o3: 47, no2: 32, so2: 15, co: 1.0 },
-      { time: "12:00", pm25: 39, pm10: 62, o3: 44, no2: 30, so2: 14, co: 0.9 },
-      { time: "15:00", pm25: 37, pm10: 59, o3: 42, no2: 28, so2: 13, co: 0.8 },
-      { time: "18:00", pm25: 40, pm10: 63, o3: 40, no2: 29, so2: 14, co: 0.9 },
-      { time: "21:00", pm25: 35, pm10: 57, o3: 38, no2: 27, so2: 12, co: 0.7 },
+      { time: "00:00", pm25: 33, o3: 38, no2: 26, so2: 12, co: 0.7 },
+      { time: "03:00", pm25: 30, o3: 36, no2: 24, so2: 11, co: 0.6 },
+      { time: "06:00", pm25: 37, o3: 42, no2: 28, so2: 13, co: 0.8 },
+      { time: "09:00", pm25: 42, o3: 47, no2: 32, so2: 15, co: 1.0 },
+      { time: "12:00", pm25: 39, o3: 44, no2: 30, so2: 14, co: 0.9 },
+      { time: "15:00", pm25: 37, o3: 42, no2: 28, so2: 13, co: 0.8 },
+      { time: "18:00", pm25: 40, o3: 40, no2: 29, so2: 14, co: 0.9 },
+      { time: "21:00", pm25: 35, o3: 38, no2: 27, so2: 12, co: 0.7 },
     ],
   },
 };
 
 const pollutantColors = {
   pm25: "#ef4444", // red
-  pm10: "#f97316", // orange
   o3: "#3b82f6", // blue
   no2: "#8b5cf6", // purple
   so2: "#10b981", // green
@@ -325,7 +317,6 @@ export default function Dashboard() {
   // Fixed: Include pm10 back in the visiblePollutants state
   const [visiblePollutants, setVisiblePollutants] = useState({
     pm25: true,
-    pm10: true, // Make sure this is included
     o3: true,
     no2: true,
     so2: true,
@@ -383,7 +374,6 @@ export default function Dashboard() {
         airQuality: data.current.air_quality
           ? {
               pm25: data.current.air_quality.pm2_5,
-              pm10: data.current.air_quality.pm10,
               o3: data.current.air_quality.o3,
               no2: data.current.air_quality.no2,
               so2: data.current.air_quality.so2,
