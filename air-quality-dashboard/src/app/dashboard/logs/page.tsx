@@ -73,6 +73,10 @@ export default function LogMonitoringPage() {
     null
   );
 
+  //Button for delete and resolve actions state
+  const [isResolving, setIsResolving] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+
   // Fetch logs from API on mount
   React.useEffect(() => {
     fetch("http://localhost:4000/api/logs")
@@ -92,37 +96,61 @@ export default function LogMonitoringPage() {
     return matchesTab && matchesStatus && matchesSearch;
   });
 
-  const markAsResolved = (logId: string) => {
-    fetch(`http://localhost:4000/api/logs/${logId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "resolved" }),
-    })
-      .then((res) => res.json())
-      .then((updatedLog) => {
-        setLogs((logs) =>
-          logs.map((log) => (log._id === logId ? updatedLog : log))
-        );
-        if (selectedLog && selectedLog._id === logId) {
-          setSelectedLog(updatedLog);
-        }
+  const markAsResolved = async (logId: string) => {
+    setIsResolving(true);
+    try {
+      const response = await fetch(`http://localhost:4000/api/logs/${logId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "resolved" }),
       });
-  };
 
-  const deleteLog = (logId: string) => {
-    fetch(`http://localhost:4000/api/logs/${logId}`, { method: "DELETE" }).then(
-      () => {
-        setLogs((logs) => logs.filter((log) => log._id !== logId));
-        if (selectedLog && selectedLog._id === logId) {
-          setSelectedLog(logs.length > 1 ? logs[0] : null);
-        }
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    );
+
+      const updatedLog = await response.json();
+
+      setLogs((logs) =>
+        logs.map((log) => (log._id === logId ? updatedLog : log))
+      );
+
+      if (selectedLog && selectedLog._id === logId) {
+        setSelectedLog(updatedLog);
+      }
+    } catch (error) {
+      console.error("Error resolving log:", error);
+      // You might want to show an error message to the user here
+      alert("Failed to resolve log. Please try again.");
+    } finally {
+      setIsResolving(false);
+    }
   };
 
-  const handleResolveClick = (logId: string) => {
-    setPendingResolveId(logId);
-    setShowResolveModal(true);
+  const deleteLog = async (logId: string) => {
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`http://localhost:4000/api/logs/${logId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const remainingLogs = logs.filter((log) => log._id !== logId);
+      setLogs(remainingLogs);
+
+      if (selectedLog && selectedLog._id === logId) {
+        setSelectedLog(remainingLogs.length > 0 ? remainingLogs[0] : null);
+      }
+    } catch (error) {
+      console.error("Error deleting log:", error);
+      // You might want to show an error message to the user here
+      alert("Failed to delete log. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleConfirmResolve = () => {
@@ -133,22 +161,27 @@ export default function LogMonitoringPage() {
     setPendingResolveId(null);
   };
 
-  const handleCancelResolve = () => {
-    setShowResolveModal(false);
-    setPendingResolveId(null);
-  };
-
-  const handleDeleteClick = (logId: string) => {
-    setPendingDeleteId(logId);
-    setShowDeleteModal(true);
-  };
-
   const handleConfirmDelete = () => {
     if (pendingDeleteId) {
       deleteLog(pendingDeleteId);
     }
     setShowDeleteModal(false);
     setPendingDeleteId(null);
+  };
+
+  const handleCancelResolve = () => {
+    setShowResolveModal(false);
+    setPendingResolveId(null);
+  };
+
+  const handleResolveClick = (logId: string) => {
+    setPendingResolveId(logId);
+    setShowResolveModal(true);
+  };
+
+  const handleDeleteClick = (logId: string) => {
+    setPendingDeleteId(logId);
+    setShowDeleteModal(true);
   };
 
   const handleCancelDelete = () => {
@@ -478,20 +511,40 @@ export default function LogMonitoringPage() {
                     <div className="flex justify-end space-x-3">
                       {selectedLog.status === "unresolved" && (
                         <Button
-                          onClick={() => handleResolveClick(selectedLog.id)}
-                          className="bg-gray-900 hover:bg-gray-800 text-white flex items-center space-x-2"
+                          onClick={() => handleResolveClick(selectedLog._id)} // FIXED: Use _id instead of id
+                          disabled={isResolving || isDeleting}
+                          className="bg-gray-900 hover:bg-gray-800 text-white flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <CheckCircle className="h-4 w-4" />
-                          <span>Mark as Resolved</span>
+                          {isResolving ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              <span>Resolving...</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="h-4 w-4" />
+                              <span>Mark as Resolved</span>
+                            </>
+                          )}
                         </Button>
                       )}
                       <Button
-                        onClick={() => handleDeleteClick(selectedLog.id)}
+                        onClick={() => handleDeleteClick(selectedLog._id)} // FIXED: Use _id instead of id
+                        disabled={isResolving || isDeleting}
                         variant="destructive"
-                        className="flex items-center space-x-2"
+                        className="flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <Trash2 className="h-4 w-4" />
-                        <span>Delete Log</span>
+                        {isDeleting ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <span>Deleting...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="h-4 w-4" />
+                            <span>Delete Log</span>
+                          </>
+                        )}
                       </Button>
                     </div>
                   </div>

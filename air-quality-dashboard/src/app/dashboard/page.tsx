@@ -25,6 +25,9 @@ import {
   Settings,
   Menu,
   X,
+  RefreshCw,
+  Settings2,
+  Clock,
 } from "lucide-react";
 import { useState, useMemo, useRef, useEffect } from "react";
 import {
@@ -44,6 +47,15 @@ import {
 import { UserButton, useUser } from "@clerk/nextjs";
 import AirQualityMap from "@/components/air-quality-map";
 import Link from "next/link";
+import UserMenu from "@/components/userMenu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 
 const WEATHER_API_KEY = process.env.NEXT_PUBLIC_WEATHER_API_KEY;
 const WEATHER_API_BASE = "https://api.weatherapi.com/v1";
@@ -120,12 +132,6 @@ const defaultOverviewData = {
     so2: { value: 12.8, unit: "μg/m³", status: "good", trend: "stable" },
     co: { value: 0.8, unit: "mg/m³", status: "good", trend: "stable" },
   },
-  weather: {
-    temperature: 29,
-    humidity: 75,
-    windSpeed: 10,
-    visibility: 9.0,
-  },
   trendData: [
     { time: "00:00", pm25: 32, o3: 40, no2: 26, so2: 12, co: 0.7 },
     { time: "03:00", pm25: 29, o3: 37, no2: 24, so2: 11, co: 0.6 },
@@ -149,12 +155,6 @@ const locationData = {
       so2: { value: 11.8, unit: "μg/m³", status: "good", trend: "stable" },
       co: { value: 0.7, unit: "mg/m³", status: "good", trend: "down" },
     },
-    weather: {
-      temperature: 29,
-      humidity: 78,
-      windSpeed: 8,
-      visibility: 9.2,
-    },
     trendData: [
       { time: "00:00", pm25: 28, o3: 35, no2: 22, so2: 10, co: 0.6 },
       { time: "03:00", pm25: 25, o3: 32, no2: 20, so2: 9, co: 0.5 },
@@ -174,12 +174,6 @@ const locationData = {
       no2: { value: 29.8, unit: "μg/m³", status: "good", trend: "up" },
       so2: { value: 14.3, unit: "μg/m³", status: "good", trend: "up" },
       co: { value: 0.9, unit: "mg/m³", status: "good", trend: "stable" },
-    },
-    weather: {
-      temperature: 30,
-      humidity: 72,
-      windSpeed: 10,
-      visibility: 8.8,
     },
     trendData: [
       { time: "00:00", pm25: 35, o3: 42, no2: 27, so2: 13, co: 0.8 },
@@ -201,12 +195,6 @@ const locationData = {
       so2: { value: 16.2, unit: "μg/m³", status: "good", trend: "up" },
       co: { value: 1.1, unit: "mg/m³", status: "good", trend: "up" },
     },
-    weather: {
-      temperature: 31,
-      humidity: 70,
-      windSpeed: 12,
-      visibility: 8.5,
-    },
     trendData: [
       { time: "00:00", pm25: 38, o3: 45, no2: 32, so2: 15, co: 1.0 },
       { time: "03:00", pm25: 35, o3: 42, no2: 30, so2: 14, co: 0.9 },
@@ -227,12 +215,6 @@ const locationData = {
       so2: { value: 9.5, unit: "μg/m³", status: "good", trend: "down" },
       co: { value: 0.6, unit: "mg/m³", status: "good", trend: "stable" },
     },
-    weather: {
-      temperature: 28,
-      humidity: 80,
-      windSpeed: 15,
-      visibility: 9.8,
-    },
     trendData: [
       { time: "00:00", pm25: 24, o3: 32, no2: 20, so2: 8, co: 0.5 },
       { time: "03:00", pm25: 22, o3: 30, no2: 18, so2: 7, co: 0.4 },
@@ -252,12 +234,6 @@ const locationData = {
       no2: { value: 28.4, unit: "μg/m³", status: "good", trend: "stable" },
       so2: { value: 13.1, unit: "μg/m³", status: "good", trend: "up" },
       co: { value: 0.8, unit: "mg/m³", status: "good", trend: "stable" },
-    },
-    weather: {
-      temperature: 30,
-      humidity: 75,
-      windSpeed: 9,
-      visibility: 8.9,
     },
     trendData: [
       { time: "00:00", pm25: 33, o3: 38, no2: 26, so2: 12, co: 0.7 },
@@ -327,6 +303,11 @@ export default function Dashboard() {
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState<boolean>(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState<number | null>(
+    null
+  ); // in minutes
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const { user } = useUser();
 
@@ -383,6 +364,7 @@ export default function Dashboard() {
       };
 
       setWeatherData(transformedWeather);
+      setLastUpdated(new Date());
     } catch (error) {
       console.error("Error fetching weather data:", error);
       setWeatherError(error instanceof Error ? error.message : "Unknown error");
@@ -414,13 +396,57 @@ export default function Dashboard() {
     );
   }, [selectedLocation]);
 
-  // Use real weather data if available, fallback to mock data
-  const currentWeatherData = useMemo(() => {
-    if (weatherData) {
-      return weatherData;
+  // Auto-refresh effect
+  useEffect(() => {
+    if (autoRefreshInterval) {
+      intervalRef.current = setInterval(() => {
+        if (selectedLocation) {
+          fetchWeatherData(
+            selectedLocation.lat,
+            selectedLocation.lng,
+            selectedLocation.name
+          );
+        } else {
+          fetchWeatherData(3.1319, 101.6569, "University Malaya");
+        }
+      }, autoRefreshInterval * 60 * 1000); // Convert minutes to milliseconds
     }
-    return currentLocationData.weather;
-  }, [weatherData, currentLocationData.weather]);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [autoRefreshInterval, selectedLocation]);
+
+  const handleManualRefresh = () => {
+    if (selectedLocation) {
+      fetchWeatherData(
+        selectedLocation.lat,
+        selectedLocation.lng,
+        selectedLocation.name
+      );
+    } else {
+      fetchWeatherData(3.1319, 101.6569, "University Malaya");
+    }
+  };
+
+  const formatLastUpdated = (date: Date) => {
+    const now = new Date();
+    const diffInMinutes = Math.floor(
+      (now.getTime() - date.getTime()) / (1000 * 60)
+    );
+
+    if (diffInMinutes < 1) return "Just now";
+    if (diffInMinutes === 1) return "1 minute ago";
+    if (diffInMinutes < 60) return `${diffInMinutes} minutes ago`;
+
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours === 1) return "1 hour ago";
+    if (diffInHours < 24) return `${diffInHours} hours ago`;
+
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
 
   // Calculate average AQI when no location is selected
   const averageAQI = useMemo(() => {
@@ -659,81 +685,238 @@ export default function Dashboard() {
               {/* Weather Conditions */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    Weather
-                    {weatherLoading && (
-                      <div className="text-xs text-gray-500">Loading...</div>
-                    )}
-                    {weatherError && (
-                      <div className="text-xs text-red-500">
-                        Error loading weather
-                      </div>
-                    )}
-                  </CardTitle>
-                  {weatherData?.condition && (
-                    <CardDescription className="flex items-center space-x-2">
-                      <img
-                        src={weatherData.icon}
-                        alt={weatherData.condition}
-                        className="w-6 h-6"
-                      />
-                      <span>{weatherData.condition}</span>
-                    </CardDescription>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Thermometer className="h-4 w-4 text-orange-500" />
-                      <span className="text-sm">Temperature</span>
-                    </div>
-                    <span className="font-semibold">
-                      {currentWeatherData.temperature}°C
-                      {weatherData?.feelsLike && (
-                        <span className="text-xs text-gray-500 ml-1">
-                          (feels {weatherData.feelsLike}°C)
-                        </span>
+                    <div>
+                      <CardTitle className="flex items-center space-x-2">
+                        <span>Weather</span>
+                        {weatherLoading && (
+                          <div className="text-xs text-blue-500 flex items-center space-x-1">
+                            <RefreshCw className="h-3 w-3 animate-spin" />
+                            <span>Loading...</span>
+                          </div>
+                        )}
+                        {weatherError && (
+                          <div className="text-xs text-red-500">
+                            ⚠️ Failed to load
+                          </div>
+                        )}
+                      </CardTitle>
+                      {weatherData?.condition && (
+                        <CardDescription className="flex items-center space-x-2">
+                          <img
+                            src={weatherData.icon}
+                            alt={weatherData.condition}
+                            className="w-6 h-6"
+                          />
+                          <span>{weatherData.condition}</span>
+                        </CardDescription>
                       )}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Droplets className="h-4 w-4 text-blue-500" />
-                      <span className="text-sm">Humidity</span>
+                      {lastUpdated && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          <Clock className="h-3 w-3 inline mr-1" />
+                          Updated {formatLastUpdated(lastUpdated)}
+                        </div>
+                      )}
                     </div>
-                    <span className="font-semibold">
-                      {currentWeatherData.humidity}%
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
+
+                    {/* Refresh Controls */}
                     <div className="flex items-center space-x-2">
-                      <Wind className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm">Wind Speed</span>
+                      {/* Manual Refresh Button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleManualRefresh}
+                        disabled={weatherLoading}
+                        className="h-8 w-8 p-0"
+                        title="Refresh weather data"
+                      >
+                        <RefreshCw
+                          className={`h-4 w-4 ${
+                            weatherLoading ? "animate-spin" : ""
+                          }`}
+                        />
+                      </Button>
+
+                      {/* Auto-refresh Settings */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            title="Auto-refresh settings"
+                          >
+                            <Settings2 className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuLabel className="text-xs">
+                            Auto-refresh
+                          </DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+
+                          <DropdownMenuItem
+                            onClick={() => setAutoRefreshInterval(null)}
+                            className={
+                              autoRefreshInterval === null ? "bg-blue-50" : ""
+                            }
+                          >
+                            <span className="flex items-center justify-between w-full">
+                              Manual only
+                              {autoRefreshInterval === null && (
+                                <div className="h-2 w-2 bg-blue-500 rounded-full" />
+                              )}
+                            </span>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            onClick={() => setAutoRefreshInterval(5)}
+                            className={
+                              autoRefreshInterval === 5 ? "bg-blue-50" : ""
+                            }
+                          >
+                            <span className="flex items-center justify-between w-full">
+                              Every 5 minutes
+                              {autoRefreshInterval === 5 && (
+                                <div className="h-2 w-2 bg-blue-500 rounded-full" />
+                              )}
+                            </span>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            onClick={() => setAutoRefreshInterval(10)}
+                            className={
+                              autoRefreshInterval === 10 ? "bg-blue-50" : ""
+                            }
+                          >
+                            <span className="flex items-center justify-between w-full">
+                              Every 10 minutes
+                              {autoRefreshInterval === 10 && (
+                                <div className="h-2 w-2 bg-blue-500 rounded-full" />
+                              )}
+                            </span>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            onClick={() => setAutoRefreshInterval(15)}
+                            className={
+                              autoRefreshInterval === 15 ? "bg-blue-50" : ""
+                            }
+                          >
+                            <span className="flex items-center justify-between w-full">
+                              Every 15 minutes
+                              {autoRefreshInterval === 15 && (
+                                <div className="h-2 w-2 bg-blue-500 rounded-full" />
+                              )}
+                            </span>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            onClick={() => setAutoRefreshInterval(30)}
+                            className={
+                              autoRefreshInterval === 30 ? "bg-blue-50" : ""
+                            }
+                          >
+                            <span className="flex items-center justify-between w-full">
+                              Every 30 minutes
+                              {autoRefreshInterval === 30 && (
+                                <div className="h-2 w-2 bg-blue-500 rounded-full" />
+                              )}
+                            </span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                    <span className="font-semibold">
-                      {currentWeatherData.windSpeed} km/h
-                    </span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Eye className="h-4 w-4 text-purple-500" />
-                      <span className="text-sm">Visibility</span>
-                    </div>
-                    <span className="font-semibold">
-                      {currentWeatherData.visibility} km
-                    </span>
-                  </div>
-                  {weatherData?.uvIndex && (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <div className="h-4 w-4 rounded-full bg-yellow-400" />
-                        <span className="text-sm">UV Index</span>
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  {weatherData ? (
+                    // Show real weather data
+                    <>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Thermometer className="h-4 w-4 text-orange-500" />
+                          <span className="text-sm">Temperature</span>
+                        </div>
+                        <span className="font-semibold">
+                          {weatherData.temperature}°C
+                          {weatherData.feelsLike && (
+                            <span className="text-xs text-gray-500 ml-1">
+                              (feels {weatherData.feelsLike}°C)
+                            </span>
+                          )}
+                        </span>
                       </div>
-                      <span className="font-semibold">
-                        {weatherData.uvIndex}
-                      </span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Droplets className="h-4 w-4 text-blue-500" />
+                          <span className="text-sm">Humidity</span>
+                        </div>
+                        <span className="font-semibold">
+                          {weatherData.humidity}%
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Wind className="h-4 w-4 text-gray-500" />
+                          <span className="text-sm">Wind Speed</span>
+                        </div>
+                        <span className="font-semibold">
+                          {weatherData.windSpeed} km/h
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Eye className="h-4 w-4 text-purple-500" />
+                          <span className="text-sm">Visibility</span>
+                        </div>
+                        <span className="font-semibold">
+                          {weatherData.visibility} km
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <div className="h-4 w-4 rounded-full bg-yellow-400 flex items-center justify-center">
+                            <div className="h-2 w-2 rounded-full bg-yellow-600"></div>
+                          </div>
+                          <span className="text-sm">UV Index</span>
+                        </div>
+                        <span className="font-semibold">
+                          {weatherData.uvIndex !== undefined
+                            ? weatherData.uvIndex
+                            : "N/A"}
+                        </span>
+                      </div>
+                    </>
+                  ) : weatherLoading ? (
+                    // Loading state
+                    <div className="text-center py-8">
+                      <div className="animate-pulse space-y-4">
+                        <div className="h-4 bg-gray-200 rounded w-3/4 mx-auto"></div>
+                        <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto"></div>
+                        <div className="h-4 bg-gray-200 rounded w-2/3 mx-auto"></div>
+                      </div>
+                      <p className="text-sm text-gray-500 mt-2">
+                        Fetching weather data...
+                      </p>
                     </div>
-                  )}
+                  ) : weatherError ? (
+                    // Error state with retry option
+                    <div className="text-center py-8">
+                      <AlertTriangle className="h-8 w-8 text-red-500 mx-auto mb-2" />
+                      <p className="text-sm text-gray-600 mb-3">
+                        Unable to load weather data
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleManualRefresh}
+                      >
+                        Try Again
+                      </Button>
+                    </div>
+                  ) : null}
                 </CardContent>
               </Card>
             </div>

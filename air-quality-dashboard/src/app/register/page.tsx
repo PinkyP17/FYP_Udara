@@ -21,7 +21,7 @@ import {
   Mail,
 } from "lucide-react";
 import Link from "next/link";
-import { useSignUp, useAuth } from "@clerk/nextjs";
+import { useSignUp, useAuth, useUser } from "@clerk/nextjs";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
@@ -39,6 +39,8 @@ export default function RegisterPage() {
   const [regConfirmPassword, setRegConfirmPassword] = useState("");
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [showRegConfirmPassword, setShowRegConfirmPassword] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [location, setLocation] = useState("");
   const [regError, setRegError] = useState("");
   const [regIsLoading, setRegIsLoading] = useState(false);
 
@@ -48,6 +50,7 @@ export default function RegisterPage() {
   const [verificationLoading, setVerificationLoading] = useState(false);
 
   const { isSignedIn, isLoaded } = useAuth();
+  const { user } = useUser();
   const { signUp, setActive: setActiveSignUp } = useSignUp();
   const router = useRouter();
 
@@ -56,6 +59,46 @@ export default function RegisterPage() {
       router.push("/dashboard");
     }
   }, [isSignedIn, isLoaded, router]);
+
+  useEffect(() => {
+    const saveUserProfile = async () => {
+      if (
+        registrationStep === "success" &&
+        user &&
+        user.id &&
+        phone &&
+        location
+      ) {
+        try {
+          const res = await fetch("http://localhost:4000/api/user-profile", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              clerkUserId: user.id,
+              phone,
+              location,
+            }),
+          });
+
+          if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`Server error: ${errText}`);
+          }
+
+          console.log("✅ User profile saved in DB");
+        } catch (err) {
+          console.error(
+            "❌ Failed to save user profile after verification:",
+            err
+          );
+        }
+      }
+    };
+
+    saveUserProfile();
+  }, [registrationStep, user, phone, location]);
 
   // Password validation
   const isPasswordValid = (password: string) => {
@@ -110,6 +153,24 @@ export default function RegisterPage() {
       // Step 3: User confirms their password
       if (regPassword !== regConfirmPassword) {
         setRegError("Passwords do not match.");
+        setRegIsLoading(false);
+        return;
+      }
+
+      if (!phone.trim()) {
+        setRegError("Please enter your phone number.");
+        setRegIsLoading(false);
+        return;
+      }
+
+      if (!location.trim()) {
+        setRegError("Please enter your location.");
+        setRegIsLoading(false);
+        return;
+      }
+
+      if (!/^(\+?60|0)1[0-9]{8,9}$/.test(phone)) {
+        setRegError("Please enter a valid Malaysian phone number.");
         setRegIsLoading(false);
         return;
       }
@@ -557,6 +618,33 @@ export default function RegisterPage() {
                 {regConfirmPassword && regPassword !== regConfirmPassword && (
                   <p className="text-xs text-red-600">Passwords do not match</p>
                 )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  placeholder="+60123456789"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  disabled={regIsLoading}
+                  className="w-full"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="location">Location</Label>
+                <Input
+                  id="location"
+                  name="location"
+                  type="text"
+                  placeholder="e.g. Kuala Lumpur"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  disabled={regIsLoading}
+                  className="w-full"
+                />
               </div>
 
               {regError && (

@@ -1,4 +1,3 @@
-// routes/airQuality.js - Corrected Air Quality Routes
 const express = require("express");
 const router = express.Router();
 const {
@@ -123,14 +122,58 @@ router.get("/device/:deviceId/latest", async (req, res) => {
 router.get("/device/:deviceId/trend", async (req, res) => {
   try {
     const { deviceId } = req.params;
-    const { hours = 24, interval = "raw" } = req.query;
+    const { hours = 24, interval = "raw", startTime, endTime } = req.query;
+
+    // Determine time range
+    let queryStartTime, queryEndTime;
+
+    if (startTime && endTime) {
+      // Use custom date range
+      queryStartTime = new Date(startTime);
+      queryEndTime = new Date(endTime);
+    } else if (startTime) {
+      // Use custom start time + hours
+      queryStartTime = new Date(startTime);
+      queryEndTime = new Date(
+        queryStartTime.getTime() + parseInt(hours) * 60 * 60 * 1000
+      );
+    } else {
+      // Use hours from now (default behavior)
+      queryStartTime = new Date(Date.now() - parseInt(hours) * 60 * 60 * 1000);
+      queryEndTime = new Date();
+    }
 
     if (interval === "hourly") {
-      // Get hourly averages
-      const trendData = await AirQualityReading.getHourlyAverages(
-        deviceId,
-        parseInt(hours)
-      );
+      // For hourly averages, we need to modify the aggregation to use custom time range
+      const trendData = await AirQualityReading.aggregate([
+        {
+          $match: {
+            deviceId: deviceId.toUpperCase(),
+            timestamp: { $gte: queryStartTime, $lte: queryEndTime },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              hour: {
+                $dateToString: { format: "%Y-%m-%d %H:00", date: "$timestamp" },
+              },
+            },
+            avgPm25: { $avg: "$readings.pm25.value" },
+            avgPm10: { $avg: "$readings.pm10.value" },
+            avgO3: { $avg: "$readings.o3.value" },
+            avgNo2: { $avg: "$readings.no2.value" },
+            avgSo2: { $avg: "$readings.so2.value" },
+            avgCo: { $avg: "$readings.co.value" },
+            avgAqi: { $avg: "$aqiData.overall.value" },
+            count: { $sum: 1 },
+            timestamp: { $first: "$timestamp" },
+          },
+        },
+        {
+          $sort: { "_id.hour": 1 },
+        },
+      ]);
 
       // Format for frontend chart - recalculate AQI for averaged values
       const formattedData = trendData.map((item) => {
@@ -163,11 +206,10 @@ router.get("/device/:deviceId/trend", async (req, res) => {
       res.json(formattedData);
     } else {
       // Get raw readings
-      const startTime = new Date(Date.now() - parseInt(hours) * 60 * 60 * 1000);
       const readings = await AirQualityReading.getTimeRange(
         deviceId,
-        startTime,
-        new Date()
+        queryStartTime,
+        queryEndTime
       );
 
       // Format for frontend chart

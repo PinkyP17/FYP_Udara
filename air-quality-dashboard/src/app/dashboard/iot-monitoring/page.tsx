@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import PingModal from "@/components/PingModal";
+import ConfigureModal from "@/components/ConfigureModal";
 import {
   Wind,
   Calendar,
@@ -148,6 +150,10 @@ export default function IoTMonitoringPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<Device>(devices[0]);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Modals State
+  const [pingModalOpen, setPingModalOpen] = useState(false);
+  const [configModalOpen, setConfigModalOpen] = useState(false);
   const { user } = useUser();
 
   const filteredDevices = devices.filter(
@@ -174,6 +180,61 @@ export default function IoTMonitoringPage() {
     aqi: selectedDevice.readings.aqi,
     status: selectedDevice.status === "online" ? "good" : "offline",
   };
+
+  const handlePingDevice = () => {
+    console.log("Ping button clicked!");
+    console.log("Selected device:", selectedDevice);
+    console.log("Current pingModalOpen state:", pingModalOpen);
+    setPingModalOpen(true);
+    console.log("Setting pingModalOpen to true");
+  };
+
+  const handleDownloadReport = () => {
+    // Create CSV report
+    const reportData = [
+      ["Device Report"],
+      ["Generated on:", new Date().toLocaleString()],
+      [""],
+      ["Device Information"],
+      ["Name:", selectedDevice.name],
+      ["Device ID:", selectedDevice.deviceId],
+      ["Status:", selectedDevice.status],
+      ["Location:", selectedDevice.location],
+      ["Last Updated:", selectedDevice.lastUpdated],
+      [""],
+      ["Current Readings"],
+      ["Air Quality Index:", selectedDevice.readings.aqi],
+      ["PM2.5:", selectedDevice.readings.pm25],
+      ["Temperature:", selectedDevice.readings.temperature + "°C"],
+      ["Humidity:", selectedDevice.readings.humidity + "%"],
+      [""],
+      ["Device Details"],
+      ["Installation Date:", selectedDevice.installationDate],
+      ["Last Maintenance:", selectedDevice.lastMaintenance],
+      ["Firmware Version:", selectedDevice.firmwareVersion],
+    ];
+
+    const csvContent = reportData.map((row) => row.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${selectedDevice.deviceId}_report_${
+      new Date().toISOString().split("T")[0]
+    }.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleConfigure = () => {
+  console.log("Configure button clicked!");
+  console.log("Selected device:", selectedDevice);
+  console.log("Current configModalOpen state:", configModalOpen);
+  setConfigModalOpen(true);
+  console.log("Setting configModalOpen to true");
+};
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -523,20 +584,25 @@ export default function IoTMonitoringPage() {
                         <Button
                           variant="outline"
                           className="flex items-center space-x-2"
+                          onClick={handlePingDevice}
                         >
                           <Wifi className="h-4 w-4" />
                           <span>Ping Device</span>
                         </Button>
+
                         <Button
                           variant="outline"
                           className="flex items-center space-x-2"
+                          onClick={handleDownloadReport}
                         >
                           <Download className="h-4 w-4" />
                           <span>Download Report</span>
                         </Button>
+
                         <Button
                           variant="outline"
                           className="flex items-center space-x-2"
+                          onClick={handleConfigure}
                         >
                           <Settings className="h-4 w-4" />
                           <span>Configure</span>
@@ -636,6 +702,18 @@ export default function IoTMonitoringPage() {
                 </>
               )}
             </div>
+            {/* Modals */}
+            <PingModal
+              isOpen={pingModalOpen}
+              onClose={() => setPingModalOpen(false)}
+              device={selectedDevice}
+            />
+
+            <ConfigureModal
+              isOpen={configModalOpen}
+              onClose={() => setConfigModalOpen(false)}
+              device={selectedDevice}
+            />
           </div>
         </main>
       </div>
