@@ -10,14 +10,21 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+//Model
+const { AirQualityReading } = require("./model/AirQualityReading");
+
 // Routes
 const logsRouter = require("./routes/logs");
 const devicesRouter = require("./routes/devices");
 const pollutantDataRouter = require("./routes/pollutantData");
+const userProfileRouter = require("./routes/userProfile");
+const airQualityRouter = require("./routes/airQualityData");
 
 app.use("/api/logs", logsRouter);
 app.use("/api/devices", devicesRouter);
 app.use("/api/pollutant-data", pollutantDataRouter);
+app.use("/api/user-profile", userProfileRouter);
+app.use("/api/air-quality", airQualityRouter);
 
 // Test route
 app.get("/", (req, res) => {
