@@ -1,5 +1,8 @@
 "use client";
 
+//TODO - Fix resizing issues, when data dont have loks okay, when data has it shrinks for whatreve ereason
+
+
 import {
   Card,
   CardContent,
@@ -81,8 +84,12 @@ interface WeatherData {
 }
 
 const pollutantColors = {
-  pm25: "#ef4444",
-  pm10: "#3b82f6",
+  pm25: "#ef4444",      // Red
+  pm10: "#3b82f6",      // Blue
+  co: "#06b6d4",        // Cyan
+  no2: "#6b7280",       // Gray
+  o3: "#f59e0b",        // Amber
+  so2: "#10b981",       // Emerald
   temperature: "#10b981",
   humidity: "#8b5cf6",
 };
@@ -127,11 +134,15 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
 
   const [visiblePollutants, setVisiblePollutants] = useState({
-    pm25: true,
-    pm10: true,
-    temperature: true,
-    humidity: true,
-  });
+  pm25: true,
+  pm10: true,
+  co: true,
+  no2: true,
+  o3: true,
+  so2: true,
+  temperature: true,
+  humidity: true,
+});
 
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState<boolean>(false);
@@ -757,34 +768,35 @@ export default function Dashboard() {
                     </div>
                   ) : (
                     // Empty state when no device selected
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                      {['PM2.5', 'PM10', 'Temperature', 'Humidity', 'Pressure'].map((metric) => (
-                        <div
-                          key={metric}
-                          className="text-center p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200"
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-sm font-medium uppercase tracking-wide text-gray-400">
-                              {metric}
-                            </h4>
-                          </div>
-                          <div className="space-y-2">
-                            <div className="text-2xl font-bold text-gray-300">--</div>
-                            <div className="text-xs text-gray-400">
-                              {metric.includes('PM') ? 'µg/m³' : 
-                               metric === 'Temperature' ? '°C' :
-                               metric === 'Humidity' ? '%' : 'hPa'}
-                            </div>
-                            <Badge
-                              className="bg-gray-100 text-gray-400 text-xs"
-                              variant="secondary"
-                            >
-                              No data
-                            </Badge>
-                          </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {['PM2.5', 'PM10', 'CO', 'NO2', 'O3', 'SO2', 'Temperature', 'Humidity'].map((metric) => (
+                      <div
+                        key={metric}
+                        className="text-center p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-medium uppercase tracking-wide text-gray-400">
+                            {metric}
+                          </h4>
                         </div>
-                      ))}
-                    </div>
+                        <div className="space-y-2">
+                          <div className="text-2xl font-bold text-gray-300">--</div>
+                          <div className="text-xs text-gray-400">
+                            {/* Logic to determine unit based on metric name */}
+                            {metric.includes('PM') ? 'µg/m³' : 
+                             metric === 'Temperature' ? '°C' :
+                             metric === 'Humidity' ? '%' : 'ppm'}
+                          </div>
+                          <Badge
+                            className="bg-gray-100 text-gray-400 text-xs"
+                            variant="secondary"
+                          >
+                            No data
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                   )}
                 </CardContent>
               </Card>
