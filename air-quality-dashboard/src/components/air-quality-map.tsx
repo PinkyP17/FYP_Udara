@@ -1,20 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
-// You'll need to get this from mapbox.com
 mapboxgl.accessToken =
   process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "your-mapbox-token-here";
 
 interface Location {
-  id: number;
+  id: string | number;
+  deviceId: string;
   name: string;
   lat: number;
   lng: number;
-  aqi: number;
-  status: string;
+  address?: string;
+  city?: string;
+  status?: string;
+  aqi?: { value: number; status: string } | null;
+  pm2_5?: number | null;
+  pm10?: number | null;
 }
 
 interface AirQualityMapProps {
@@ -23,13 +27,16 @@ interface AirQualityMapProps {
   onLocationSelect: (location: Location | null) => void;
 }
 
-const getStatusColor = (status: string) => {
+const getStatusColor = (status?: string) => {
+  if (!status) return "#6b7280"; // gray for unknown
+  
   switch (status.toLowerCase()) {
     case "good":
       return "#10b981"; // green
     case "moderate":
       return "#f59e0b"; // yellow
     case "unhealthy":
+    case "unhealthy for sensitive groups":
       return "#f97316"; // orange
     case "very unhealthy":
       return "#ef4444"; // red
@@ -40,11 +47,10 @@ const getStatusColor = (status: string) => {
   }
 };
 
-export default function AirQualityMap({
-  locations,
-  selectedLocation,
-  onLocationSelect,
-}: AirQualityMapProps) {
+const AirQualityMap = forwardRef<
+  { closeAllPopups: () => void },
+  AirQualityMapProps
+>(({ locations, selectedLocation, onLocationSelect }, ref) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<mapboxgl.Marker[]>([]);
@@ -57,6 +63,11 @@ export default function AirQualityMap({
     activePopups.current = [];
   };
 
+  // Expose closeAllPopups to parent component
+  useImperativeHandle(ref, () => ({
+    closeAllPopups,
+  }));
+
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
@@ -65,7 +76,7 @@ export default function AirQualityMap({
       container: mapContainer.current,
       style: "mapbox://styles/mapbox/satellite-streets-v12",
       center: [101.6569, 3.1319], // University Malaya coordinates
-      zoom: 11, // Closer zoom to focus on the area
+      zoom: 11,
       projection: "mercator",
     });
 
@@ -78,12 +89,10 @@ export default function AirQualityMap({
 
     // Add click event to map background to deselect markers
     map.current.on("click", (e) => {
-      // Check if click was on the map background (not on a marker)
       const features = map.current!.queryRenderedFeatures(e.point);
       if (features.length === 0) {
         closeAllPopups();
         onLocationSelect(null);
-        // Return to overview
         map.current?.flyTo({
           center: [101.6569, 3.1319],
           zoom: 11,
@@ -107,7 +116,7 @@ export default function AirQualityMap({
   }, [selectedLocation]);
 
   useEffect(() => {
-    if (!map.current || !mapLoaded) return;
+    if (!map.current || !mapLoaded || !locations || locations.length === 0) return;
 
     // Clear existing markers and popups
     markers.current.forEach((marker) => marker.remove());
@@ -116,6 +125,14 @@ export default function AirQualityMap({
 
     // Add markers for each location
     locations.forEach((location) => {
+      // Skip if coordinates are invalid
+      if (!location.lat || !location.lng) return;
+
+      // Get AQI value and status safely
+      const aqiValue = location.aqi?.value ?? 0;
+      const aqiStatus = location.aqi?.status || 'good';
+      const color = getStatusColor(aqiStatus);
+
       // Create custom marker element
       const markerElement = document.createElement("div");
       markerElement.className = "air-quality-marker";
@@ -126,7 +143,7 @@ export default function AirQualityMap({
              style="
                width: 48px; 
                height: 48px; 
-               background-color: ${getStatusColor(location.status)}; 
+               background-color: ${color}; 
                border: 3px solid white; 
                border-radius: 50%; 
                display: flex; 
@@ -144,7 +161,7 @@ export default function AirQualityMap({
                    : ""
                }
              ">
-          ${location.aqi}
+          ${aqiValue}
         </div>
         <div class="marker-pin" 
              style="
@@ -152,7 +169,7 @@ export default function AirQualityMap({
                height: 0; 
                border-left: 6px solid transparent; 
                border-right: 6px solid transparent; 
-               border-top: 8px solid ${getStatusColor(location.status)}; 
+               border-top: 8px solid ${color}; 
                margin: -2px auto 0; 
                filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
              ">
@@ -189,24 +206,18 @@ export default function AirQualityMap({
 
       // Add click event
       markerElement.addEventListener("click", (e) => {
-        e.stopPropagation(); // Prevent map click event
-
-        // Close all popups first
+        e.stopPropagation();
         closeAllPopups();
 
-        // If clicking the same marker, deselect it
         if (selectedLocation?.id === location.id) {
           onLocationSelect(null);
-          // Return to overview
           map.current?.flyTo({
             center: [101.6569, 3.1319],
             zoom: 11,
             duration: 1000,
           });
         } else {
-          // Select new location
           onLocationSelect(location);
-          // Fly to location
           map.current?.flyTo({
             center: [location.lng, location.lat],
             zoom: 13,
@@ -223,21 +234,30 @@ export default function AirQualityMap({
       });
 
       markerElement.addEventListener("mouseenter", () => {
-        // Close any existing popups first
         closeAllPopups();
 
-        popup
-          .setHTML(
-            `
+        // Build popup content with available data
+        let popupContent = `
           <div style="padding: 8px; text-align: center;">
             <strong>${location.name}</strong><br>
-            <span style="color: ${getStatusColor(location.status)};">AQI: ${
-              location.aqi
-            }</span><br>
-            <small>${location.status}</small>
-          </div>
-        `
-          )
+            <span style="color: ${color};">AQI: ${aqiValue}</span><br>
+            <small>${aqiStatus}</small>
+        `;
+        
+        // Add PM2.5 if available
+        if (location.pm2_5 !== null && location.pm2_5 !== undefined) {
+          popupContent += `<br><small>PM2.5: ${location.pm2_5.toFixed(1)} µg/m³</small>`;
+        }
+        
+        // Add PM10 if available
+        if (location.pm10 !== null && location.pm10 !== undefined) {
+          popupContent += `<br><small>PM10: ${location.pm10.toFixed(1)} µg/m³</small>`;
+        }
+        
+        popupContent += `</div>`;
+
+        popup
+          .setHTML(popupContent)
           .setLngLat([location.lng, location.lat])
           .addTo(map.current!);
 
@@ -251,6 +271,20 @@ export default function AirQualityMap({
 
       markers.current.push(marker);
     });
+
+    // Fit map to show all markers if there are multiple
+    if (locations.length > 1) {
+      const bounds = new mapboxgl.LngLatBounds();
+      locations.forEach((loc) => {
+        if (loc.lat && loc.lng) {
+          bounds.extend([loc.lng, loc.lat]);
+        }
+      });
+      map.current.fitBounds(bounds, {
+        padding: 50,
+        maxZoom: 14,
+      });
+    }
   }, [locations, selectedLocation, mapLoaded, onLocationSelect]);
 
   return (
@@ -292,7 +326,7 @@ export default function AirQualityMap({
         </div>
       </div>
 
-      {/* Simplified instructions overlay */}
+      {/* Instructions overlay */}
       <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-3 text-xs max-w-40">
         <p className="text-gray-600">
           <strong>Click</strong> any marker to view location details
@@ -300,4 +334,8 @@ export default function AirQualityMap({
       </div>
     </div>
   );
-}
+});
+
+AirQualityMap.displayName = "AirQualityMap";
+
+export default AirQualityMap;
