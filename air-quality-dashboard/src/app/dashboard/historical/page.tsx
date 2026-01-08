@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -15,16 +16,14 @@ import {
   Wind,
   Calendar,
   TrendingUp,
-  AlertTriangle,
   MapPin,
   Settings,
   Bell,
   Menu,
   Download,
   Share,
-  FileText,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { UserButton, useUser } from "@clerk/nextjs";
 import Link from "next/link";
 import {
@@ -45,213 +44,219 @@ import {
 } from "@/components/ui/chart";
 import PdfReportDialog from "@/components/PdfReportDialog";
 
-// Mock historical data - replaced pm10 with co
-const allHistoricalData = [
-  { date: "2023-01", pm25: 38, co: 2.1, no2: 28, o3: 32, so2: 15 },
-  { date: "2023-02", pm25: 42, co: 2.8, no2: 30, o3: 35, so2: 18 },
-  { date: "2023-03", pm25: 28, co: 1.9, no2: 18, o3: 25, so2: 12 },
-  { date: "2023-04", pm25: 48, co: 3.2, no2: 35, o3: 42, so2: 22 },
-  { date: "2023-05", pm25: 38, co: 2.5, no2: 25, o3: 38, so2: 16 },
-  { date: "2023-06", pm25: 52, co: 3.5, no2: 38, o3: 45, so2: 25 },
-  { date: "2023-07", pm25: 45, co: 2.9, no2: 32, o3: 40, so2: 19 },
-  { date: "2023-08", pm25: 41, co: 2.7, no2: 29, o3: 36, so2: 17 },
-  { date: "2023-09", pm25: 35, co: 2.2, no2: 22, o3: 31, so2: 14 },
-  { date: "2023-10", pm25: 39, co: 2.6, no2: 26, o3: 34, so2: 16 },
-  { date: "2023-11", pm25: 44, co: 3.0, no2: 31, o3: 38, so2: 20 },
-  { date: "2023-12", pm25: 47, co: 3.1, no2: 33, o3: 41, so2: 21 },
-];
-
+// ✅ COMPLETE CONFIG: PM2.5, PM10, and 4 gas pollutants
 const pollutantColors = {
-  pm25: "#ef4444", // red
-  co: "#06b6d4", // cyan (replaced pm10)
-  no2: "#6b7280", // gray
-  o3: "#f59e0b", // amber
-  so2: "#10b981", // emerald
+  pm25: "#ef4444",   // red - PM2.5
+  pm10: "#f97316",   // orange - PM10
+  co: "#06b6d4",     // cyan - CO
+  no2: "#6b7280",    // gray - NO2
+  o3: "#f59e0b",     // amber - O3
+  so2: "#10b981",    // emerald - SO2
 };
 
 const chartConfig = {
-  pm25: { label: "PM2.5", color: "#ef4444" },
-  co: { label: "CO", color: "#06b6d4" }, // replaced pm10
-  no2: { label: "NO2", color: "#6b7280" },
-  o3: { label: "O3", color: "#f59e0b" },
-  so2: { label: "SO2", color: "#10b981" },
+  pm25: { label: "PM2.5 (µg/m³)", color: "#ef4444" },
+  pm10: { label: "PM10 (µg/m³)", color: "#f97316" },
+  co: { label: "CO (ppm)", color: "#06b6d4" },
+  no2: { label: "NO2 (ppb)", color: "#6b7280" },
+  o3: { label: "O3 (ppb)", color: "#f59e0b" },
+  so2: { label: "SO2 (ppb)", color: "#10b981" },
 };
 
-// Mock data table - replaced pm10 with co and updated locations
-const allTableData = [
-  {
-    date: "2023-12-15",
-    location: "FSKTM",
-    pm25: 47,
-    co: 3.1,
-    no2: 33,
-    o3: 41,
-    so2: 21,
-    aqi: 85,
-  },
-  {
-    date: "2023-11-28",
-    location: "FSSS",
-    pm25: 44,
-    co: 3.0,
-    no2: 31,
-    o3: 38,
-    so2: 20,
-    aqi: 78,
-  },
-  {
-    date: "2023-10-22",
-    location: "FAB",
-    pm25: 39,
-    co: 2.6,
-    no2: 26,
-    o3: 34,
-    so2: 16,
-    aqi: 72,
-  },
-  {
-    date: "2023-09-18",
-    location: "FSKTM",
-    pm25: 35,
-    co: 2.2,
-    no2: 22,
-    o3: 31,
-    so2: 14,
-    aqi: 65,
-  },
-  {
-    date: "2023-08-14",
-    location: "FSSS",
-    pm25: 41,
-    co: 2.7,
-    no2: 29,
-    o3: 36,
-    so2: 17,
-    aqi: 74,
-  },
-  {
-    date: "2023-07-10",
-    location: "FAB",
-    pm25: 45,
-    co: 2.9,
-    no2: 32,
-    o3: 40,
-    so2: 19,
-    aqi: 81,
-  },
-  {
-    date: "2023-06-15",
-    location: "FSKTM",
-    pm25: 52,
-    co: 3.5,
-    no2: 38,
-    o3: 45,
-    so2: 25,
-    aqi: 92,
-  },
-  {
-    date: "2023-05-20",
-    location: "FSSS",
-    pm25: 38,
-    co: 2.5,
-    no2: 25,
-    o3: 38,
-    so2: 16,
-    aqi: 68,
-  },
-  {
-    date: "2023-04-25",
-    location: "FAB",
-    pm25: 48,
-    co: 3.2,
-    no2: 35,
-    o3: 42,
-    so2: 22,
-    aqi: 88,
-  },
-  {
-    date: "2023-03-18",
-    location: "FSKTM",
-    pm25: 28,
-    co: 1.9,
-    no2: 18,
-    o3: 25,
-    so2: 12,
-    aqi: 58,
-  },
-  {
-    date: "2023-02-14",
-    location: "FSSS",
-    pm25: 42,
-    co: 2.8,
-    no2: 30,
-    o3: 35,
-    so2: 18,
-    aqi: 75,
-  },
-  {
-    date: "2023-01-10",
-    location: "FAB",
-    pm25: 38,
-    co: 2.1,
-    no2: 28,
-    o3: 32,
-    so2: 15,
-    aqi: 70,
-  },
-];
-
 export default function HistoricalDataPage() {
+  const { user } = useUser();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("line");
-  const [startDate, setStartDate] = useState("2023-01-01");
-  const [endDate, setEndDate] = useState("2023-12-31");
+
+  // --- FILTER STATES ---
+  const [endDate, setEndDate] = useState(new Date().toISOString().split("T")[0]);
+  const [startDate, setStartDate] = useState(
+    new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+  );
   const [selectedLocation, setSelectedLocation] = useState("all");
-  const [filteredHistoricalData, setFilteredHistoricalData] =
-    useState(allHistoricalData);
-  const [filteredTableData, setFilteredTableData] = useState(allTableData);
-  const { user } = useUser();
 
-  // Function to apply filters
-  const applyFilters = () => {
-    // Filter historical data by date range
-    const filteredHistorical = allHistoricalData.filter((item) => {
-      const itemDate = new Date(item.date + "-01"); // Convert "2023-01" to "2023-01-01"
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      return itemDate >= start && itemDate <= end;
-    });
+  // --- VIEW MODE STATE ---
+  const [viewMode, setViewMode] = useState<'auto' | 'detailed' | 'aggregated'>('auto');
 
-    // Filter table data by date range and location
-    const filteredTable = allTableData.filter((item) => {
-      const itemDate = new Date(item.date);
-      const start = new Date(startDate);
-      const end = new Date(endDate);
+  // --- DATA STATES ---
+  const [chartData, setChartData] = useState([]); 
+  const [devices, setDevices] = useState([]);     
+  const [loading, setLoading] = useState(false);
+  const [dataMetadata, setDataMetadata] = useState<any>(null);
 
-      const dateMatch = itemDate >= start && itemDate <= end;
-      const locationMatch =
-        selectedLocation === "all" ||
-        item.location.toLowerCase() === selectedLocation.toLowerCase();
+  // --- TOGGLE STATE ---
+  // ✅ All 6 pollutants visible by default (PM2.5, PM10, CO, NO2, O3, SO2)
+  const [visiblePollutants, setVisiblePollutants] = useState<string[]>([
+    "pm25", "pm10", "co", "no2", "o3", "so2"
+  ]);
 
-      return dateMatch && locationMatch;
-    });
+  // 1. Fetch available devices for Dropdown
+  //##Todo: Change API endpoint as needed
+  useEffect(() => {
+    const fetchDevices = async () => {
+      try {
+        const res = await fetch("http://localhost:4000/api/devices");
+        if (res.ok) {
+          const data = await res.json();
+          setDevices(data.devices || []); 
+        }
+      } catch (error) {
+        console.error("Failed to fetch devices", error);
+        setDevices([]); 
+      }
+    };
+    fetchDevices();
+  }, []);
 
-    setFilteredHistoricalData(filteredHistorical);
-    setFilteredTableData(filteredTable);
+  // 2. ✅ UPDATED: Fetch History Data with VIEW MODE support
+  const fetchHistoricalData = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        startDate,
+        endDate,
+        deviceId: selectedLocation,
+        viewMode: viewMode,  // ✅ Pass view mode
+      });
+
+      const res = await fetch(`http://localhost:4000/api/sensor/history?${params}`);
+      
+      if (res.ok) {
+        const response = await res.json();
+        const rawData = response.data || response; // Handle both formats
+        const metadata = response.metadata;
+        
+        setDataMetadata(metadata); // ✅ Store metadata
+        
+        // Console log for debugging
+        if (metadata) {
+          console.log(`📊 Loaded: ${metadata.returned}/${metadata.total} points (${metadata.aggregated ? metadata.aggregationType : 'raw'})`);
+        }
+
+        // ✅ Map backend response with GAS CONCENTRATIONS
+        const formattedData = rawData.map((item: any) => ({
+          // X-axis label with time
+          date: new Date(item.timestamp).toLocaleDateString("en-MY", {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          timestamp: item.timestamp,
+          
+          // Device info
+          location: item.deviceDetails?.name || item.device_id,
+          
+          // ✅ PARTICULATE MATTER (2 metrics)
+          pm25: item.pm2_5 || 0,
+          pm10: item.pm10 || 0,
+          
+          // ✅ GAS POLLUTANTS (4 metrics)
+          co: item.CO_ppm || 0,
+          no2: item.NO2_ppb || 0,
+          o3: item.O3_ppb || 0,
+          so2: item.SO2_ppb || 0,
+          
+          // Environmental (for reference)
+          temperature: item.temperature_c || 0,
+          humidity: item.humidity_pct || 0,
+          
+          // Calculated AQI
+          aqi: item.aqi || 0,
+          aqi_status: item.aqi_status || 'good',
+          
+          // Metadata
+          count: item.count || 1,
+          isRaw: item.isRaw || false,
+          isAggregated: item.isAggregated || false
+        }));
+
+        setChartData(formattedData);
+      } else {
+        console.error("Failed to fetch history");
+        setChartData([]);
+      }
+    } catch (error) {
+      console.error("Error fetching history:", error);
+      setChartData([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Function to clear all filters
-  const clearAllFilters = () => {
-    setStartDate("2023-01-01");
-    setEndDate("2023-12-31");
+  // Run fetch on initial load
+  useEffect(() => {
+    fetchHistoricalData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Re-fetch when view mode changes
+  useEffect(() => {
+    fetchHistoricalData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode]);
+
+  // --- HELPER FUNCTIONS ---
+
+  const handleApplyFilters = () => {
+    fetchHistoricalData();
+  };
+
+  const handleClearFilters = () => {
+    setEndDate(new Date().toISOString().split("T")[0]);
+    setStartDate(
+      new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+    );
     setSelectedLocation("all");
-    setFilteredHistoricalData(allHistoricalData);
-    setFilteredTableData(allTableData);
+    setViewMode('auto');
+    setTimeout(fetchHistoricalData, 100); 
   };
 
-  // Calculate summary statistics based on filtered data
+  // Handle Legend Click to Toggle Pollutants
+  const handleLegendClick = (e: any) => {
+    const pollutantKey = e.dataKey;
+    if (!pollutantKey) return;
+
+    setVisiblePollutants((prev) => 
+      prev.includes(pollutantKey)
+        ? prev.filter((key) => key !== pollutantKey)
+        : [...prev, pollutantKey]
+    );
+  };
+
+  // ✅ EXPORT CSV FUNCTION (always raw data)
+  const handleExportCSV = async () => {
+    try {
+      const params = new URLSearchParams({
+        startDate,
+        endDate,
+        deviceId: selectedLocation,
+        format: 'csv'
+      });
+
+      const res = await fetch(`http://localhost:4000/api/sensor/history/export?${params}`);
+      
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `air-quality-${startDate}-${endDate}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        alert("Failed to export data");
+      }
+    } catch (error) {
+      console.error("Export failed:", error);
+      alert("Failed to export data");
+    }
+  };
+
   const calculateSummaryStats = () => {
-    if (filteredTableData.length === 0) {
+    if (chartData.length === 0) {
       return {
         averageAqi: 0,
         peakAqi: 0,
@@ -260,25 +265,22 @@ export default function HistoricalDataPage() {
       };
     }
 
-    const aqiValues = filteredTableData.map((item) => item.aqi);
-    const averageAqi = (
-      aqiValues.reduce((sum, aqi) => sum + aqi, 0) / aqiValues.length
-    ).toFixed(1);
+    const aqiValues = chartData.map((item: any) => item.aqi);
+    const sum = aqiValues.reduce((a, b) => a + b, 0);
+    const averageAqi = (sum / aqiValues.length).toFixed(1);
     const peakAqi = Math.max(...aqiValues).toFixed(1);
     const lowestAqi = Math.min(...aqiValues).toFixed(1);
 
-    // Determine most common quality level based on AQI ranges
-    const getQualityLevel = (aqi) => {
+    const getQualityLevel = (aqi: number) => {
       if (aqi <= 50) return "Good";
       if (aqi <= 100) return "Moderate";
-      if (aqi <= 150) return "Unhealthy for Sensitive Groups";
       if (aqi <= 200) return "Unhealthy";
       if (aqi <= 300) return "Very Unhealthy";
       return "Hazardous";
     };
 
     const qualityLevels = aqiValues.map(getQualityLevel);
-    const levelCounts = qualityLevels.reduce((acc, level) => {
+    const levelCounts = qualityLevels.reduce((acc: any, level: string) => {
       acc[level] = (acc[level] || 0) + 1;
       return acc;
     }, {});
@@ -326,14 +328,7 @@ export default function HistoricalDataPage() {
             <Button variant="ghost" size="sm">
               <Settings className="h-5 w-5" />
             </Button>
-            <UserButton
-              appearance={{
-                elements: {
-                  avatarBox: "w-8 h-8",
-                },
-              }}
-              afterSignOutUrl="/"
-            />
+            <UserButton afterSignOutUrl="/" />
           </div>
         </div>
       </header>
@@ -367,21 +362,9 @@ export default function HistoricalDataPage() {
                 </Link>
               </Button>
               <Button variant="ghost" className="w-full justify-start" asChild>
-                <Link href="/dashboard/data-verification">
-                  <AlertTriangle className="mr-3 h-5 w-5" />
-                  Air Quality Data Verification
-                </Link>
-              </Button>
-              <Button variant="ghost" className="w-full justify-start" asChild>
                 <Link href="/dashboard/iot-monitoring">
                   <MapPin className="mr-3 h-5 w-5" />
                   IoT Device Monitoring
-                </Link>
-              </Button>
-              <Button variant="ghost" className="w-full justify-start" asChild>
-                <Link href="/dashboard/logs">
-                  <Settings className="mr-3 h-5 w-5" />
-                  Log Monitoring
                 </Link>
               </Button>
             </div>
@@ -394,6 +377,39 @@ export default function HistoricalDataPage() {
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
               Historical Air Quality Data
             </h1>
+            <p className="text-sm text-gray-600">
+              Showing PM2.5, PM10, and gas pollutants (CO, NO2, O3, SO2) converted from Alphasense sensors
+            </p>
+            
+            {/* ✅ DATA INFO BADGES */}
+            {dataMetadata && (
+              <div className="flex items-center gap-3 mt-3">
+                <Badge variant="outline" className="text-sm">
+                  {dataMetadata.returned} of {dataMetadata.total} points
+                </Badge>
+                {dataMetadata.aggregated && (
+                  <Badge variant="secondary" className="text-sm">
+                    {dataMetadata.aggregationType} averages
+                  </Badge>
+                )}
+                {!dataMetadata.aggregated && dataMetadata.total === dataMetadata.returned && (
+                  <Badge className="text-sm bg-green-500 hover:bg-green-600">
+                    All raw data
+                  </Badge>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ✅ INFO BOX - View Mode Guide */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+            <strong>💡 View Mode Guide:</strong>
+            <ul className="mt-2 space-y-1 ml-4 list-disc">
+              <li><strong>Auto:</strong> Shows all points for small datasets, aggregates for large ones</li>
+              <li><strong>Detailed:</strong> Always shows every raw data point (may be slow for large ranges)</li>
+              <li><strong>Simplified:</strong> Always aggregates by hour/day for cleaner charts</li>
+              <li><strong>CSV Export:</strong> Always exports raw data regardless of view mode</li>
+            </ul>
           </div>
 
           {/* Filters */}
@@ -421,39 +437,70 @@ export default function HistoricalDataPage() {
                   />
                 </div>
                 <div className="flex-1 min-w-[200px]">
-                  <Label htmlFor="location">Select Location</Label>
+                  <Label htmlFor="location">Select Device</Label> 
                   <Select
                     value={selectedLocation}
                     onValueChange={setSelectedLocation}
                   >
                     <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Select location" />
+                      <SelectValue placeholder="Select a device" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Locations</SelectItem>
-                      <SelectItem value="fsktm">
-                        FSKTM (Faculty of Computer Science & IT)
+                      <SelectItem value="all">All Devices</SelectItem>
+                      {devices.map((dev: any) => (
+                        <SelectItem key={dev.deviceId} value={dev.deviceId}>
+                          {dev.name} ({dev.deviceId})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* ✅ VIEW MODE SELECTOR */}
+                <div className="flex-1 min-w-[200px]">
+                  <Label htmlFor="view-mode">View Mode</Label>
+                  <Select
+                    value={viewMode}
+                    onValueChange={(value: 'auto' | 'detailed' | 'aggregated') => setViewMode(value)}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select view mode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">
+                        <div className="flex flex-col items-start">
+                          <span className="font-medium">Auto (Recommended)</span>
+                          <span className="text-xs text-gray-500">Smart optimization</span>
+                        </div>
                       </SelectItem>
-                      <SelectItem value="fsss">
-                        FSSS (Faculty of Sports & Exercise Science)
+                      <SelectItem value="detailed">
+                        <div className="flex flex-col items-start">
+                          <span className="font-medium">Detailed</span>
+                          <span className="text-xs text-gray-500">All raw points</span>
+                        </div>
                       </SelectItem>
-                      <SelectItem value="fab">
-                        FAB (Faculty of Built Environment)
+                      <SelectItem value="aggregated">
+                        <div className="flex flex-col items-start">
+                          <span className="font-medium">Simplified</span>
+                          <span className="text-xs text-gray-500">Hourly/daily avg</span>
+                        </div>
                       </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div className="flex gap-2">
                   <Button
                     className="bg-gray-900 hover:bg-gray-800 text-white"
-                    onClick={applyFilters}
+                    onClick={handleApplyFilters}
+                    disabled={loading}
                   >
-                    Apply Filters
+                    {loading ? "Loading..." : "Apply Filters"}
                   </Button>
                   <Button
                     variant="outline"
                     className="border-gray-300 hover:bg-gray-50"
-                    onClick={clearAllFilters}
+                    onClick={handleClearFilters}
                   >
                     Clear All
                   </Button>
@@ -465,242 +512,158 @@ export default function HistoricalDataPage() {
           {/* Chart Section */}
           <Card>
             <CardContent className="pt-6">
-              {/* Tab Navigation - Fixed button styling */}
               <div className="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setActiveTab("line")}
-                  className={`${
-                    activeTab === "line"
-                      ? "bg-white shadow-sm text-gray-900 hover:bg-white"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-                  }`}
-                >
-                  Line Graph
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setActiveTab("bar")}
-                  className={`${
-                    activeTab === "bar"
-                      ? "bg-white shadow-sm text-gray-900 hover:bg-white"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-                  }`}
-                >
-                  Bar Chart
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setActiveTab("table")}
-                  className={`${
-                    activeTab === "table"
-                      ? "bg-white shadow-sm text-gray-900 hover:bg-white"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-                  }`}
-                >
-                  Data Table
-                </Button>
+                {["line", "bar", "table"].map((tab) => (
+                  <Button
+                    key={tab}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setActiveTab(tab)}
+                    className={`${
+                      activeTab === tab
+                        ? "bg-white shadow-sm text-gray-900 hover:bg-white"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+                    } capitalize`}
+                  >
+                    {tab === "line" ? "Line Graph" : tab === "bar" ? "Bar Chart" : "Data Table"}
+                  </Button>
+                ))}
               </div>
 
-              {/* Chart Content */}
-              {activeTab === "line" && (
-                <div className="h-96">
-                  <ChartContainer config={chartConfig} className="h-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart
-                        data={filteredHistoricalData}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis
-                          dataKey="date"
-                          axisLine={false}
-                          tickLine={false}
-                          tick={{ fontSize: 12, fill: "#666" }}
-                        />
-                        <YAxis
-                          axisLine={false}
-                          tickLine={false}
-                          tick={{ fontSize: 12, fill: "#666" }}
-                          domain={[0, 80]}
-                        />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Legend
-                          wrapperStyle={{ paddingTop: "20px" }}
-                          iconType="line"
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="pm25"
-                          stroke={pollutantColors.pm25}
-                          strokeWidth={2}
-                          dot={{
-                            fill: pollutantColors.pm25,
-                            strokeWidth: 2,
-                            r: 4,
-                          }}
-                          name="PM2.5"
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="co"
-                          stroke={pollutantColors.co}
-                          strokeWidth={2}
-                          dot={{
-                            fill: pollutantColors.co,
-                            strokeWidth: 2,
-                            r: 4,
-                          }}
-                          name="CO"
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="no2"
-                          stroke={pollutantColors.no2}
-                          strokeWidth={2}
-                          dot={{
-                            fill: pollutantColors.no2,
-                            strokeWidth: 2,
-                            r: 4,
-                          }}
-                          name="NO2"
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="o3"
-                          stroke={pollutantColors.o3}
-                          strokeWidth={2}
-                          dot={{
-                            fill: pollutantColors.o3,
-                            strokeWidth: 2,
-                            r: 4,
-                          }}
-                          name="O3"
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="so2"
-                          stroke={pollutantColors.so2}
-                          strokeWidth={2}
-                          dot={{
-                            fill: pollutantColors.so2,
-                            strokeWidth: 2,
-                            r: 4,
-                          }}
-                          name="SO2"
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
+              {loading ? (
+                <div className="h-96 flex items-center justify-center text-gray-500">
+                  Loading data...
                 </div>
-              )}
+              ) : chartData.length === 0 ? (
+                <div className="h-96 flex items-center justify-center text-gray-500">
+                  No data found for this range.
+                </div>
+              ) : (
+                <>
+                  {activeTab === "line" && (
+                    <div className="h-96">
+                      <ChartContainer config={chartConfig} className="h-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart
+                            data={chartData}
+                            margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                            <XAxis
+                              dataKey="date"
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fontSize: 12, fill: "#666" }}
+                            />
+                            <YAxis
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fontSize: 12, fill: "#666" }}
+                            />
+                            <ChartTooltip content={<ChartTooltipContent />} />
+                            
+                            <Legend 
+                                wrapperStyle={{ paddingTop: "20px", cursor: "pointer" }} 
+                                iconType="line" 
+                                onClick={handleLegendClick}
+                            />
+                            
+                            {/* ✅ ALL 6 POLLUTANTS (PM2.5, PM10, CO, NO2, O3, SO2) */}
+                            {Object.keys(pollutantColors).map((key) => (
+                              <Line
+                                key={key}
+                                type="monotone"
+                                dataKey={key}
+                                stroke={(pollutantColors as any)[key]}
+                                strokeWidth={2}
+                                dot={{ r: 3 }}
+                                name={chartConfig[key as keyof typeof chartConfig].label}
+                                hide={!visiblePollutants.includes(key)}
+                              />
+                            ))}
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </ChartContainer>
+                    </div>
+                  )}
 
-              {activeTab === "bar" && (
-                <div className="h-96">
-                  <ChartContainer config={chartConfig} className="h-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={filteredHistoricalData}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis
-                          dataKey="date"
-                          axisLine={false}
-                          tickLine={false}
-                          tick={{ fontSize: 12, fill: "#666" }}
-                        />
-                        <YAxis
-                          axisLine={false}
-                          tickLine={false}
-                          tick={{ fontSize: 12, fill: "#666" }}
-                        />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Legend wrapperStyle={{ paddingTop: "20px" }} />
-                        <Bar
-                          dataKey="pm25"
-                          fill={pollutantColors.pm25}
-                          name="PM2.5"
-                        />
-                        <Bar dataKey="co" fill={pollutantColors.co} name="CO" />
-                        <Bar
-                          dataKey="no2"
-                          fill={pollutantColors.no2}
-                          name="NO2"
-                        />
-                        <Bar dataKey="o3" fill={pollutantColors.o3} name="O3" />
-                        <Bar
-                          dataKey="so2"
-                          fill={pollutantColors.so2}
-                          name="SO2"
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
-                </div>
-              )}
+                  {activeTab === "bar" && (
+                    <div className="h-96">
+                      <ChartContainer config={chartConfig} className="h-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={chartData}
+                            margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                            <XAxis
+                              dataKey="date"
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fontSize: 12, fill: "#666" }}
+                            />
+                            <YAxis axisLine={false} tickLine={false} />
+                            <ChartTooltip content={<ChartTooltipContent />} />
+                            
+                            <Legend 
+                                wrapperStyle={{ paddingTop: "20px", cursor: "pointer" }} 
+                                onClick={handleLegendClick}
+                            />
+                            
+                            {/* ✅ ALL 6 POLLUTANTS (PM2.5, PM10, CO, NO2, O3, SO2) */}
+                            {Object.keys(pollutantColors).map((key) => (
+                              <Bar
+                                key={key}
+                                dataKey={key}
+                                fill={(pollutantColors as any)[key]}
+                                name={chartConfig[key as keyof typeof chartConfig].label}
+                                hide={!visiblePollutants.includes(key)}
+                              />
+                            ))}
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </ChartContainer>
+                    </div>
+                  )}
 
-              {activeTab === "table" && (
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">
-                          Date
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">
-                          Location
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">
-                          PM2.5
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">
-                          CO
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">
-                          NO2
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">
-                          O3
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">
-                          SO2
-                        </th>
-                        <th className="text-left py-3 px-4 font-medium text-gray-900">
-                          AQI
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredTableData.map((row, index) => (
-                        <tr
-                          key={index}
-                          className="border-b border-gray-100 hover:bg-gray-50"
-                        >
-                          <td className="py-3 px-4 text-gray-900">
-                            {row.date}
-                          </td>
-                          <td className="py-3 px-4 text-gray-600">
-                            {row.location}
-                          </td>
-                          <td className="py-3 px-4 text-gray-900">
-                            {row.pm25}
-                          </td>
-                          <td className="py-3 px-4 text-gray-900">{row.co}</td>
-                          <td className="py-3 px-4 text-gray-900">{row.no2}</td>
-                          <td className="py-3 px-4 text-gray-900">{row.o3}</td>
-                          <td className="py-3 px-4 text-gray-900">{row.so2}</td>
-                          <td className="py-3 px-4 font-medium text-gray-900">
-                            {row.aqi}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                  {activeTab === "table" && (
+                    <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                      <table className="w-full border-collapse">
+                        <thead className="sticky top-0 bg-white shadow-sm">
+                          <tr className="border-b border-gray-200">
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">Date</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">Location</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">PM2.5</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">PM10</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">CO (ppm)</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">NO2 (ppb)</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">O3 (ppb)</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">SO2 (ppb)</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">AQI</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {chartData.map((row: any, index) => (
+                            <tr
+                              key={index}
+                              className="border-b border-gray-100 hover:bg-gray-50"
+                            >
+                              <td className="py-3 px-4 text-gray-900">{row.date}</td>
+                              <td className="py-3 px-4 text-gray-600">{row.location}</td>
+                              <td className="py-3 px-4 text-gray-900">{row.pm25.toFixed(1)}</td>
+                              <td className="py-3 px-4 text-gray-900">{row.pm10.toFixed(1)}</td>
+                              <td className="py-3 px-4 text-gray-900">{row.co.toFixed(3)}</td>
+                              <td className="py-3 px-4 text-gray-900">{row.no2.toFixed(2)}</td>
+                              <td className="py-3 px-4 text-gray-900">{row.o3.toFixed(2)}</td>
+                              <td className="py-3 px-4 text-gray-900">{row.so2.toFixed(2)}</td>
+                              <td className="py-3 px-4 font-medium text-gray-900">{row.aqi}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
@@ -734,7 +697,7 @@ export default function HistoricalDataPage() {
             <Card>
               <CardContent className="pt-6">
                 <div className="text-sm text-gray-600 mb-1">
-                  Most Common Quality Level
+                  Most Common Level
                 </div>
                 <div className="text-lg font-bold text-gray-900">
                   {summaryStats.mostCommonLevel}
@@ -745,14 +708,15 @@ export default function HistoricalDataPage() {
 
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-3">
-            <Button variant="outline" className="flex items-center gap-2">
+            {/* ✅ CSV EXPORT - Always raw data */}
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2"
+              onClick={handleExportCSV}
+            >
               <Download className="h-4 w-4" />
-              Download CSV
+              Download CSV (Raw Data)
             </Button>
-            {/* <Button variant="outline" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Download PDF Report
-            </Button> */}
             <PdfReportDialog />
             <Button variant="outline" className="flex items-center gap-2">
               <Share className="h-4 w-4" />
