@@ -6,9 +6,16 @@ const Device = require("../model/Device");
 const validateDeviceData = (req, res, next) => {
   const { deviceId, name, location } = req.body;
 
-  if (!deviceId || !name) {
+  // deviceId is required for creation (POST), optional for updates (PUT)
+  if (req.method === 'POST' && !deviceId) {
     return res.status(400).json({
-      error: "deviceId and name are required",
+      error: "deviceId is required",
+    });
+  }
+
+  if (!name) {
+    return res.status(400).json({
+      error: "name is required",
     });
   }
 
@@ -165,15 +172,49 @@ router.post("/", validateDeviceData, async (req, res) => {
 // Update a device
 router.put("/:id", validateDeviceData, async (req, res) => {
   try {
-    const device = await Device.findByIdAndUpdate(
-      req.params.id,
-      { ...req.body, updatedAt: new Date() },
-      { new: true, runValidators: true }
-    );
+    const device = await Device.findById(req.params.id);
 
     if (!device) {
       return res.status(404).json({ error: "Device not found" });
     }
+
+    // Update fields
+    const allowedUpdates = [
+      "name",
+      "location",
+      "status",
+      "deviceInfo",
+      "settings",
+      "notes",
+      "isActive",
+    ];
+    
+    // Only update allowed fields if they exist in req.body
+    allowedUpdates.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        if (field === 'location' && typeof req.body.location === 'object') {
+          // Merge location fields to preserve city, state, country, etc.
+          // We can't just do device.location = ... because it's a Mongoose subdoc
+          if (req.body.location.address) device.location.address = req.body.location.address;
+          if (req.body.location.coordinates) {
+            device.location.coordinates = {
+              latitude: req.body.location.coordinates.latitude,
+              longitude: req.body.location.coordinates.longitude
+            };
+          }
+        } else {
+          device[field] = req.body[field];
+        }
+      }
+    });
+
+    // Special handling for nested location updates if partial data is sent (optional, but good for robustness)
+    // The current frontend sends the full location object, so direct assignment above works.
+
+    // deviceId should usually not be changed, but if needed, add it to allowedUpdates or handle separately
+
+    device.updatedAt = new Date();
+    await device.save(); // Triggers pre-save hook for geoLocation
 
     res.json({
       message: "Device updated successfully",

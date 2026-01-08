@@ -94,14 +94,17 @@ const deviceSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-// Pre-save middleware to update geoLocation and updatedAt
-deviceSchema.pre("save", function (next) {
+// Pre-validate middleware to update geoLocation and updatedAt
+deviceSchema.pre("validate", function (next) {
   this.updatedAt = new Date();
 
   // Automatically set geoLocation based on coordinates
   if (
-    this.location.coordinates.latitude &&
-    this.location.coordinates.longitude
+    this.location.coordinates &&
+    this.location.coordinates.latitude !== undefined &&
+    this.location.coordinates.latitude !== null &&
+    this.location.coordinates.longitude !== undefined &&
+    this.location.coordinates.longitude !== null
   ) {
     this.location.geoLocation = {
       type: "Point",
