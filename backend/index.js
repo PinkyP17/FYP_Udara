@@ -16,14 +16,12 @@ const { AirQualityReading } = require("./model/AirQualityReading");
 // Routes
 const logsRouter = require("./routes/logs");
 const devicesRouter = require("./routes/devices");
-const pollutantDataRouter = require("./routes/pollutantData");
 const userProfileRouter = require("./routes/userProfile");
 const airQualityRouter = require("./routes/airQualityData");
 const sensorDataRoute = require('./routes/sensorData');
 
 app.use("/api/logs", logsRouter);
 app.use("/api/devices", devicesRouter);
-app.use("/api/pollutant-data", pollutantDataRouter);
 app.use("/api/user-profile", userProfileRouter);
 app.use("/api/air-quality", airQualityRouter);
 app.use("/api/sensor", sensorDataRoute);

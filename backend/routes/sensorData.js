@@ -113,7 +113,32 @@ router.get('/:deviceId/trends', async (req, res) => {
     const { deviceId } = req.params;
     const { hours = 24 } = req.query;
     
-    const trendData = await SensorReading.getHourlyAverages(deviceId, parseInt(hours));
+    const aggregatedData = await SensorReading.getHourlyAverages(deviceId, parseInt(hours));
+    
+    // Process gas data for each trend point
+    const trendData = aggregatedData.map(point => {
+      const gasData = processAllGases({
+        SN1_WE_V: point.SN1_WE_V, SN1_AE_V: point.SN1_AE_V,
+        SN2_WE_V: point.SN2_WE_V, SN2_AE_V: point.SN2_AE_V,
+        SN3_WE_V: point.SN3_WE_V, SN3_AE_V: point.SN3_AE_V,
+        SN4_WE_V: point.SN4_WE_V, SN4_AE_V: point.SN4_AE_V
+      });
+
+      return {
+        timestamp: point.timestamp,
+        time: point.hour,
+        pm1_0: point.pm1_0,
+        pm2_5: point.pm2_5,
+        pm10: point.pm10,
+        temperature_c: point.temperature_c,
+        humidity_pct: point.humidity_pct,
+        pressure_hpa: point.pressure_hpa,
+        no2: gasData.NO2_ppb,
+        o3: gasData.O3_ppb,
+        co: gasData.CO_ppm,
+        so2: gasData.SO2_ppb
+      };
+    });
     
     res.json({
       deviceId,
@@ -141,8 +166,13 @@ router.get('/:deviceId/current-metrics', async (req, res) => {
     const gasData = processAllGases(latestData.alphasense_voltages || {});
 
     // Format metrics for frontend display
-    // We explicitly add the gases here so the Dashboard loop can render them
     const metrics = {
+      pm1_0: {
+        value: latestData.pm1_0 || 0,
+        unit: 'µg/m³',
+        status: getPollutantStatus('pm1_0', latestData.pm1_0),
+        trend: 'stable'
+      },
       pm25: {
         value: latestData.pm2_5 || 0,
         unit: 'µg/m³',
@@ -155,28 +185,28 @@ router.get('/:deviceId/current-metrics', async (req, res) => {
         status: getPollutantStatus('pm10', latestData.pm10),
         trend: 'stable'
       },
-      // NEW GASES
+      // GASES
       co: {
         value: gasData.CO_ppm || 0,
         unit: 'ppm',
-        status: 'good', // You can create a helper for gas status later
+        status: 'good',
         trend: 'stable'
       },
       no2: {
-        value: gasData.NO2_ppm || 0,
-        unit: 'ppm',
+        value: gasData.NO2_ppb || 0,
+        unit: 'ppb',
         status: 'good',
         trend: 'stable'
       },
       o3: {
-        value: gasData.O3_ppm || 0,
-        unit: 'ppm',
+        value: gasData.O3_ppb || 0,
+        unit: 'ppb',
         status: 'good',
         trend: 'stable'
       },
       so2: {
-        value: gasData.SO2_ppm || 0,
-        unit: 'ppm',
+        value: gasData.SO2_ppb || 0,
+        unit: 'ppb',
         status: 'good',
         trend: 'stable'
       },
@@ -190,6 +220,12 @@ router.get('/:deviceId/current-metrics', async (req, res) => {
       humidity: {
         value: latestData.humidity_pct || 0,
         unit: '%',
+        status: 'good',
+        trend: 'stable'
+      },
+      pressure: {
+        value: latestData.pressure_hpa || 0,
+        unit: 'hPa',
         status: 'good',
         trend: 'stable'
       }

@@ -107,11 +107,24 @@ SensorReadingSchema.statics.getHourlyAverages = function(deviceId, hours = 24) {
         _id: {
           hour: { $dateToString: { format: "%Y-%m-%d %H:00", date: "$metadata.timestamp_server" }}
         },
-        time: { $first: { $dateToString: { format: "%H:%M", date: "$metadata.timestamp_server" }}},
-        pm25: { $avg: "$pm2_5" },
+        timestamp: { $first: "$metadata.timestamp_server" },
+        pm1_0: { $avg: "$pm1_0" },
+        pm2_5: { $avg: "$pm2_5" },
         pm10: { $avg: "$pm10" },
-        temperature: { $avg: "$temperature_c" },
-        humidity: { $avg: "$humidity_pct" },
+        temperature_c: { $avg: "$temperature_c" },
+        humidity_pct: { $avg: "$humidity_pct" },
+        pressure_hpa: { $avg: "$pressure_hpa" },
+        
+        // Average the voltages so we can convert them to concentration later
+        SN1_WE_V: { $avg: "$alphasense_voltages.SN1_WE_V" },
+        SN1_AE_V: { $avg: "$alphasense_voltages.SN1_AE_V" },
+        SN2_WE_V: { $avg: "$alphasense_voltages.SN2_WE_V" },
+        SN2_AE_V: { $avg: "$alphasense_voltages.SN2_AE_V" },
+        SN3_WE_V: { $avg: "$alphasense_voltages.SN3_WE_V" },
+        SN3_AE_V: { $avg: "$alphasense_voltages.SN3_AE_V" },
+        SN4_WE_V: { $avg: "$alphasense_voltages.SN4_WE_V" },
+        SN4_AE_V: { $avg: "$alphasense_voltages.SN4_AE_V" },
+        
         count: { $sum: 1 }
       }
     },
@@ -121,11 +134,18 @@ SensorReadingSchema.statics.getHourlyAverages = function(deviceId, hours = 24) {
     {
       $project: {
         _id: 0,
-        time: 1,
-        pm25: { $round: ["$pm25", 1] },
+        hour: "$_id.hour",
+        timestamp: 1,
+        pm1_0: { $round: ["$pm1_0", 1] },
+        pm2_5: { $round: ["$pm2_5", 1] },
         pm10: { $round: ["$pm10", 1] },
-        temperature: { $round: ["$temperature", 1] },
-        humidity: { $round: ["$humidity", 1] },
+        temperature_c: { $round: ["$temperature_c", 1] },
+        humidity_pct: { $round: ["$humidity_pct", 1] },
+        pressure_hpa: { $round: ["$pressure_hpa", 1] },
+        SN1_WE_V: 1, SN1_AE_V: 1,
+        SN2_WE_V: 1, SN2_AE_V: 1,
+        SN3_WE_V: 1, SN3_AE_V: 1,
+        SN4_WE_V: 1, SN4_AE_V: 1,
         count: 1
       }
     }
