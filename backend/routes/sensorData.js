@@ -3,36 +3,48 @@ const express = require('express');
 const router = express.Router();
 const SensorReading = require('../model/SensorReading');
 const Device = require('../model/Device');
+const { processAllGases } = require('../utils/gasConversion'); // ✅ Fixed typo: processAllGasses → processAllGases
+const {calculateMalaysianAPI} = require('../utils/malaysianApi');
 
 // GET /api/sensor/dashboard
 // Get latest readings for all active devices (for map markers)
 router.get('/dashboard', async (req, res) => {
   try {
-    // Get all active devices
     const devices = await Device.find({ isActive: true });
     
-    // Get latest reading for each device
     const dashboardData = await Promise.all(
       devices.map(async (device) => {
         const latestReading = await SensorReading.getLatestByDevice(device.deviceId);
-        const aqiData = latestReading?.pm2_5 ? calculateSimpleAQI(latestReading.pm2_5) : { value: 0, status: 'good' };
         
+        // 1. Process Gases
+        const gasData = processAllGases(latestReading?.alphasense_voltages || {});
+        
+        // 2. Calculate Official Malaysian API
+        const apiInput = {
+            pm10: latestReading?.pm10,
+            ...gasData
+        };
+        const apiResult = calculateMalaysianAPI(apiInput);
+
         return {
           id: device._id,
           deviceId: device.deviceId,
           name: device.name,
           lat: device.location.coordinates.latitude,
           lng: device.location.coordinates.longitude,
-          address: device.location.address,
-          city: device.location.city || 'Unknown',
           status: device.status || 'active',
-          // Latest sensor data
-          pm2_5: latestReading?.pm2_5 || null,
-          pm10: latestReading?.pm10 || null,
-          temperature: latestReading?.temperature_c || null,
-          humidity: latestReading?.humidity_pct || null,
           lastUpdate: latestReading?.metadata?.timestamp_server || null,
-          aqi: aqiData
+          
+          // Use the Official API Result here
+          aqi: { 
+            value: apiResult.value, 
+            status: apiResult.status 
+          },
+          
+          // Send simplified metrics for the map preview
+          pm2_5: latestReading?.pm2_5 || null,
+          temperature: latestReading?.temperature_c || null,
+          humidity: latestReading?.humidity_pct || null
         };
       })
     );
@@ -50,30 +62,49 @@ router.get('/:deviceId/latest', async (req, res) => {
   try {
     const { deviceId } = req.params;
     
-    const latestData = await SensorReading.getLatestByDevice(deviceId);
+    // 1. Get raw sensor data from DB
+    const latestReading = await SensorReading.getLatestByDevice(deviceId);
     
-    if (!latestData) {
-      return res.status(404).json({ message: 'No data found for this device' });
+    if (!latestReading) {
+      return res.status(404).json({ message: 'No data found' });
     }
     
-    // Get device details
-    const device = await Device.findOne({ deviceId: deviceId });
-    
+    // 2. Convert Voltages -> Gas Concentration (PPM/PPB)
+    const gasConcentrations = processAllGases(latestReading.alphasense_voltages || {});
+
+    // 3. Prepare data for API calculation
+    // Combine PM10 from sensor + Gas PPM from conversion
+    const apiInput = {
+      pm10: latestReading.pm10,      // From PMS5003 sensor
+      ...gasConcentrations           // Spread the calculated gas PPMs (NO2_ppm, etc.)
+    };
+
+    // 4. Calculate Official Malaysian API
+    const apiResult = calculateMalaysianAPI(apiInput);
+
+    // 5. Send Response
     res.json({
-      device: {
-        deviceId: device?.deviceId,
-        name: device?.name,
-        location: device?.location
+      device: { deviceId }, // ... add device details
+      reading: latestReading.toFrontendFormat(),
+      
+      // ✅ Return the new API object
+      aqi: {
+        value: apiResult.value,
+        status: apiResult.status,
+        predominant: apiResult.predominant
       },
-      reading: latestData.toFrontendFormat(),
-      aqi: calculateSimpleAQI(latestData.pm2_5),
-      rawData: latestData
+      
+      // Send calculating data for debugging if needed
+      gasData: gasConcentrations 
     });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 });
+
+module.exports = router;
 
 // GET /api/sensor/:deviceId/trends
 // Get 24-hour trend data for charts
@@ -100,14 +131,17 @@ router.get('/:deviceId/trends', async (req, res) => {
 router.get('/:deviceId/current-metrics', async (req, res) => {
   try {
     const { deviceId } = req.params;
-    
     const latestData = await SensorReading.getLatestByDevice(deviceId);
     
     if (!latestData) {
       return res.status(404).json({ message: 'No data found' });
     }
     
+    // Process Gases
+    const gasData = processAllGases(latestData.alphasense_voltages || {});
+
     // Format metrics for frontend display
+    // We explicitly add the gases here so the Dashboard loop can render them
     const metrics = {
       pm25: {
         value: latestData.pm2_5 || 0,
@@ -121,6 +155,32 @@ router.get('/:deviceId/current-metrics', async (req, res) => {
         status: getPollutantStatus('pm10', latestData.pm10),
         trend: 'stable'
       },
+      // NEW GASES
+      co: {
+        value: gasData.CO_ppm || 0,
+        unit: 'ppm',
+        status: 'good', // You can create a helper for gas status later
+        trend: 'stable'
+      },
+      no2: {
+        value: gasData.NO2_ppm || 0,
+        unit: 'ppm',
+        status: 'good',
+        trend: 'stable'
+      },
+      o3: {
+        value: gasData.O3_ppm || 0,
+        unit: 'ppm',
+        status: 'good',
+        trend: 'stable'
+      },
+      so2: {
+        value: gasData.SO2_ppm || 0,
+        unit: 'ppm',
+        status: 'good',
+        trend: 'stable'
+      },
+      // Environmental
       temperature: {
         value: latestData.temperature_c || 0,
         unit: '°C',
@@ -132,12 +192,6 @@ router.get('/:deviceId/current-metrics', async (req, res) => {
         unit: '%',
         status: 'good',
         trend: 'stable'
-      },
-      pressure: {
-        value: latestData.pressure_hpa || 0,
-        unit: 'hPa',
-        status: 'good',
-        trend: 'stable'
       }
     };
     
@@ -147,48 +201,387 @@ router.get('/:deviceId/current-metrics', async (req, res) => {
       metrics
     });
   } catch (err) {
-    console.error('Error fetching current metrics:', err);
+    console.error('Error fetching metrics:', err);
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 });
 
+// ✅✅✅ UPDATED HISTORY ROUTE WITH GAS CONVERSION ✅✅✅
 // GET /api/sensor/history
-// Historical data with filters (existing endpoint - kept for compatibility)
+// Historical data with filters, aggregation, and GAS CONVERSION
+
+// COMPREHENSIVE HISTORY ROUTE - Supports multiple viewing modes
+// Replace the /history route in sensorData.js with this
+
 router.get('/history', async (req, res) => {
   try {
-    const { startDate, endDate, deviceId } = req.query;
+    const { 
+      startDate, 
+      endDate, 
+      deviceId, 
+      viewMode = 'auto',  // 'auto', 'detailed', 'aggregated'
+      limit = 5000,        // Max points to return
+      page = 1             // For pagination if needed
+    } = req.query;
     
-    let query = {};
+    // Build match query
+    let matchQuery = {};
     
-    // Filter by Device ID
     if (deviceId && deviceId !== 'all') {
-      query['metadata.device_id'] = deviceId;
+      matchQuery['metadata.device_id'] = deviceId;
     }
     
-    // Filter by Date Range
     if (startDate || endDate) {
-      query['metadata.timestamp_server'] = {};
+      matchQuery['metadata.timestamp_server'] = {};
       if (startDate) {
-        query['metadata.timestamp_server'].$gte = new Date(`${startDate}T00:00:00.000Z`);
+        matchQuery['metadata.timestamp_server'].$gte = new Date(`${startDate}T00:00:00.000Z`);
       }
       if (endDate) {
-        query['metadata.timestamp_server'].$lte = new Date(`${endDate}T23:59:59.999Z`);
+        matchQuery['metadata.timestamp_server'].$lte = new Date(`${endDate}T23:59:59.999Z`);
       }
     } else {
-      // Default: Last 7 days
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      query['metadata.timestamp_server'] = { $gte: sevenDaysAgo };
+      matchQuery['metadata.timestamp_server'] = { $gte: sevenDaysAgo };
     }
     
-    const history = await SensorReading.find(query)
-      .sort({ 'metadata.timestamp_server': 1 })
-      .limit(1000)
-      .lean();
+    // ✅ STEP 1: Count total documents
+    const totalCount = await SensorReading.countDocuments(matchQuery);
     
-    res.json(history);
+    // ✅ STEP 2: Calculate date range
+    const start = matchQuery['metadata.timestamp_server']?.$gte || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const end = matchQuery['metadata.timestamp_server']?.$lte || new Date();
+    const daysDiff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    
+    // ✅ STEP 3: Determine strategy based on viewMode
+    let shouldAggregate = false;
+    let aggregationType = 'none';
+    
+    if (viewMode === 'detailed') {
+      // User explicitly wants all raw data
+      shouldAggregate = false;
+    } else if (viewMode === 'aggregated') {
+      // User explicitly wants aggregated data
+      shouldAggregate = true;
+      aggregationType = daysDiff > 30 ? 'daily' : 'hourly';
+    } else {
+      // Auto mode - smart decision
+      if (totalCount > 1000 || daysDiff > 7) {
+        shouldAggregate = true;
+        if (daysDiff <= 3) {
+          aggregationType = 'hourly';
+        } else if (daysDiff <= 30) {
+          aggregationType = 'hourly';
+        } else {
+          aggregationType = 'daily';
+        }
+      }
+    }
+    
+    console.log(`📊 [${viewMode}] ${totalCount} points, ${daysDiff} days → ${shouldAggregate ? aggregationType + ' aggregation' : 'raw data'}`);
+    
+    // ============================================
+    // OPTION A: RAW DATA (All individual points)
+    // ============================================
+    if (!shouldAggregate) {
+      const skip = (parseInt(page) - 1) * parseInt(limit);
+      
+      const rawData = await SensorReading.find(matchQuery)
+        .sort({ 'metadata.timestamp_server': 1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean();
+      
+      // Populate device details
+      const deviceIds = [...new Set(rawData.map(d => d.metadata.device_id))];
+      const devices = await Device.find({ deviceId: { $in: deviceIds } }).lean();
+      const deviceMap = {};
+      devices.forEach(d => {
+        deviceMap[d.deviceId] = d;
+      });
+      
+      // Process each individual reading
+      const enrichedData = rawData.map(reading => {
+        const device = deviceMap[reading.metadata.device_id];
+        const aqi = calculateSimpleAQI(reading.pm2_5);
+        const gasData = processAllGases(reading.alphasense_voltages || {});
+        
+        return {
+          timestamp: reading.metadata.timestamp_server,
+          device_id: reading.metadata.device_id,
+          location: reading.metadata.location,
+          
+          pm2_5: reading.pm2_5 || 0,
+          pm10: reading.pm10 || 0,
+          pm1_0: reading.pm1_0 || 0,
+          
+          temperature_c: reading.temperature_c || 0,
+          humidity_pct: reading.humidity_pct || 0,
+          pressure_hpa: reading.pressure_hpa || 0,
+          
+          NO2_ppm: gasData.NO2_ppm,
+          NO2_ppb: gasData.NO2_ppb,
+          O3_ppm: gasData.O3_ppm,
+          O3_ppb: gasData.O3_ppb,
+          CO_ppm: gasData.CO_ppm,
+          CO_ppb: gasData.CO_ppb,
+          SO2_ppm: gasData.SO2_ppm,
+          SO2_ppb: gasData.SO2_ppb,
+          
+          count: 1,
+          isRaw: true,  // Flag to indicate raw data point
+          
+          deviceDetails: device ? {
+            name: device.name,
+            location: device.location
+          } : null,
+          
+          aqi: aqi.value,
+          aqi_status: aqi.status
+        };
+      });
+      
+      return res.json({
+        data: enrichedData,
+        metadata: {
+          total: totalCount,
+          returned: enrichedData.length,
+          page: parseInt(page),
+          hasMore: totalCount > (skip + enrichedData.length),
+          aggregated: false,
+          aggregationType: 'none',
+          viewMode: viewMode,
+          dateRange: { 
+            start: start.toISOString(), 
+            end: end.toISOString(), 
+            days: daysDiff 
+          }
+        }
+      });
+    }
+    
+    // ============================================
+    // OPTION B: AGGREGATED DATA (Hourly/Daily)
+    // ============================================
+    let dateFormat = aggregationType === 'daily' ? "%Y-%m-%d" : "%Y-%m-%d %H:00";
+    
+    const pipeline = [
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: {
+            period: { $dateToString: { format: dateFormat, date: "$metadata.timestamp_server" }},
+            device_id: "$metadata.device_id"
+          },
+          timestamp: { $first: "$metadata.timestamp_server" },
+          device_id: { $first: "$metadata.device_id" },
+          location: { $first: "$metadata.location" },
+          
+          pm2_5: { $avg: "$pm2_5" },
+          pm10: { $avg: "$pm10" },
+          pm1_0: { $avg: "$pm1_0" },
+          
+          temperature_c: { $avg: "$temperature_c" },
+          humidity_pct: { $avg: "$humidity_pct" },
+          pressure_hpa: { $avg: "$pressure_hpa" },
+          
+          SN1_WE_V: { $avg: "$alphasense_voltages.SN1_WE_V" },
+          SN1_AE_V: { $avg: "$alphasense_voltages.SN1_AE_V" },
+          SN2_WE_V: { $avg: "$alphasense_voltages.SN2_WE_V" },
+          SN2_AE_V: { $avg: "$alphasense_voltages.SN2_AE_V" },
+          SN3_WE_V: { $avg: "$alphasense_voltages.SN3_WE_V" },
+          SN3_AE_V: { $avg: "$alphasense_voltages.SN3_AE_V" },
+          SN4_WE_V: { $avg: "$alphasense_voltages.SN4_WE_V" },
+          SN4_AE_V: { $avg: "$alphasense_voltages.SN4_AE_V" },
+          
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { "timestamp": 1 } },
+      {
+        $project: {
+          _id: 0,
+          timestamp: 1,
+          device_id: 1,
+          location: 1,
+          pm2_5: { $round: ["$pm2_5", 2] },
+          pm10: { $round: ["$pm10", 2] },
+          pm1_0: { $round: ["$pm1_0", 2] },
+          temperature_c: { $round: ["$temperature_c", 2] },
+          humidity_pct: { $round: ["$humidity_pct", 2] },
+          pressure_hpa: { $round: ["$pressure_hpa", 2] },
+          SN1_WE_V: 1,
+          SN1_AE_V: 1,
+          SN2_WE_V: 1,
+          SN2_AE_V: 1,
+          SN3_WE_V: 1,
+          SN3_AE_V: 1,
+          SN4_WE_V: 1,
+          SN4_AE_V: 1,
+          count: 1
+        }
+      }
+    ];
+    
+    const aggregatedData = await SensorReading.aggregate(pipeline);
+    
+    const deviceIds = [...new Set(aggregatedData.map(d => d.device_id))];
+    const devices = await Device.find({ deviceId: { $in: deviceIds } }).lean();
+    const deviceMap = {};
+    devices.forEach(d => {
+      deviceMap[d.deviceId] = d;
+    });
+    
+    const enrichedData = aggregatedData.map(reading => {
+      const device = deviceMap[reading.device_id];
+      const aqi = calculateSimpleAQI(reading.pm2_5);
+      
+      const gasData = processAllGases({
+        SN1_WE_V: reading.SN1_WE_V,
+        SN1_AE_V: reading.SN1_AE_V,
+        SN2_WE_V: reading.SN2_WE_V,
+        SN2_AE_V: reading.SN2_AE_V,
+        SN3_WE_V: reading.SN3_WE_V,
+        SN3_AE_V: reading.SN3_AE_V,
+        SN4_WE_V: reading.SN4_WE_V,
+        SN4_AE_V: reading.SN4_AE_V
+      });
+      
+      return {
+        timestamp: reading.timestamp,
+        device_id: reading.device_id,
+        location: reading.location,
+        
+        pm2_5: reading.pm2_5,
+        pm10: reading.pm10,
+        pm1_0: reading.pm1_0,
+        
+        temperature_c: reading.temperature_c,
+        humidity_pct: reading.humidity_pct,
+        pressure_hpa: reading.pressure_hpa,
+        
+        NO2_ppm: gasData.NO2_ppm,
+        NO2_ppb: gasData.NO2_ppb,
+        O3_ppm: gasData.O3_ppm,
+        O3_ppb: gasData.O3_ppb,
+        CO_ppm: gasData.CO_ppm,
+        CO_ppb: gasData.CO_ppb,
+        SO2_ppm: gasData.SO2_ppm,
+        SO2_ppb: gasData.SO2_ppb,
+        
+        count: reading.count,
+        isAggregated: true,  // Flag to indicate aggregated data
+        
+        deviceDetails: device ? {
+          name: device.name,
+          location: device.location
+        } : null,
+        
+        aqi: aqi.value,
+        aqi_status: aqi.status
+      };
+    });
+    
+    res.json({
+      data: enrichedData,
+      metadata: {
+        total: totalCount,
+        returned: enrichedData.length,
+        aggregated: true,
+        aggregationType: aggregationType,
+        viewMode: viewMode,
+        dateRange: { 
+          start: start.toISOString(), 
+          end: end.toISOString(), 
+          days: daysDiff 
+        }
+      }
+    });
+    
   } catch (err) {
     console.error("Error fetching history:", err);
     res.status(500).json({ message: "Server Error", error: err.message });
+  }
+});
+
+// ============================================
+// NEW ENDPOINT: Export Raw Data (for CSV download)
+// ============================================
+router.get('/history/export', async (req, res) => {
+  try {
+    const { startDate, endDate, deviceId, format = 'json' } = req.query;
+    
+    let matchQuery = {};
+    
+    if (deviceId && deviceId !== 'all') {
+      matchQuery['metadata.device_id'] = deviceId;
+    }
+    
+    if (startDate || endDate) {
+      matchQuery['metadata.timestamp_server'] = {};
+      if (startDate) {
+        matchQuery['metadata.timestamp_server'].$gte = new Date(`${startDate}T00:00:00.000Z`);
+      }
+      if (endDate) {
+        matchQuery['metadata.timestamp_server'].$lte = new Date(`${endDate}T23:59:59.999Z`);
+      }
+    }
+    
+    // Always get raw data for export (no aggregation)
+    const rawData = await SensorReading.find(matchQuery)
+      .sort({ 'metadata.timestamp_server': 1 })
+      .limit(10000) // Safety limit
+      .lean();
+    
+    const enrichedData = rawData.map(reading => {
+      const gasData = processAllGases(reading.alphasense_voltages || {});
+      const aqi = calculateSimpleAQI(reading.pm2_5);
+      
+      return {
+        timestamp: reading.metadata.timestamp_server,
+        device_id: reading.metadata.device_id,
+        location: reading.metadata.location,
+        pm2_5: reading.pm2_5 || 0,
+        pm10: reading.pm10 || 0,
+        pm1_0: reading.pm1_0 || 0,
+        temperature_c: reading.temperature_c || 0,
+        humidity_pct: reading.humidity_pct || 0,
+        pressure_hpa: reading.pressure_hpa || 0,
+        CO_ppm: gasData.CO_ppm,
+        NO2_ppb: gasData.NO2_ppb,
+        O3_ppb: gasData.O3_ppb,
+        SO2_ppb: gasData.SO2_ppb,
+        aqi: aqi.value,
+        aqi_status: aqi.status
+      };
+    });
+    
+    if (format === 'csv') {
+      // Convert to CSV
+      const headers = Object.keys(enrichedData[0] || {}).join(',');
+      const rows = enrichedData.map(row => 
+        Object.values(row).map(val => 
+          typeof val === 'string' && val.includes(',') ? `"${val}"` : val
+        ).join(',')
+      );
+      
+      const csv = [headers, ...rows].join('\n');
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="air-quality-export-${Date.now()}.csv"`);
+      res.send(csv);
+    } else {
+      res.json({
+        data: enrichedData,
+        metadata: {
+          total: enrichedData.length,
+          exportedAt: new Date().toISOString()
+        }
+      });
+    }
+    
+  } catch (err) {
+    console.error("Error exporting data:", err);
+    res.status(500).json({ message: "Export Error", error: err.message });
   }
 });
 
