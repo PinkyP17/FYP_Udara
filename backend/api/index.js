@@ -7,7 +7,13 @@ const cors = require("cors");
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'https://udara-frontend.vercel.app',  
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
 // MongoDB connection with caching for serverless
@@ -92,3 +98,11 @@ app.use((err, req, res, next) => {
 
 // Export for Vercel serverless
 module.exports = app;
+
+// Add this part for local development:
+if (process.env.NODE_VALUE !== 'production') {
+  const PORT = process.env.PORT || 4000;
+  app.listen(PORT, () => {
+    console.log(`Server is running locally on http://localhost:${PORT}`);
+  });
+}
