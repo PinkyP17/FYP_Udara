@@ -1,9 +1,9 @@
-// routes/sensorData.js - Updated to serve real data for dashboard
+// routes/sensorData.js - Complete version with timestamp_device fix
 const express = require('express');
 const router = express.Router();
 const SensorReading = require('../model/SensorReading');
 const Device = require('../model/Device');
-const { processAllGases } = require('../utils/gasConversion'); // ✅ Fixed typo: processAllGasses → processAllGases
+const { processAllGases } = require('../utils/gasConversion');
 const {calculateMalaysianAPI} = require('../utils/malaysianApi');
 
 // GET /api/sensor/dashboard
@@ -74,11 +74,10 @@ router.get('/:deviceId/latest', async (req, res) => {
     const gasConcentrations = processAllGases(latestReading.alphasense_voltages || {});
 
     // 3. Prepare data for API calculation
-    // Combine PM10 from sensor + Gas PPM from conversion
     const apiInput = {
-      pm10: latestReading.pm10,      // From PMS5003 sensor
-      pm2_5: latestReading.pm2_5,  // From PMS5003 sensor
-      ...gasConcentrations           // Spread the calculated gas PPMs (NO2_ppm, etc.)
+      pm10: latestReading.pm10,
+      pm2_5: latestReading.pm2_5,
+      ...gasConcentrations
     };
 
     // 4. Calculate Official Malaysian API
@@ -86,17 +85,15 @@ router.get('/:deviceId/latest', async (req, res) => {
 
     // 5. Send Response
     res.json({
-      device: { deviceId }, // ... add device details
+      device: { deviceId },
       reading: latestReading.toFrontendFormat(),
       
-      // ✅ Return the new API object
       aqi: {
         value: apiResult.value,
         status: apiResult.status,
         predominant: apiResult.predominant
       },
       
-      // Send calculating data for debugging if needed
       gasData: gasConcentrations 
     });
 
@@ -105,8 +102,6 @@ router.get('/:deviceId/latest', async (req, res) => {
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 });
-
-module.exports = router;
 
 // GET /api/sensor/:deviceId/trends
 // Get 24-hour trend data for charts
@@ -130,10 +125,10 @@ router.get('/:deviceId/trends', async (req, res) => {
         timestamp: point.timestamp,
         time: point.hour,
         pm1_0: point.pm1_0,
-        pm25: point.pm2_5, // Frontend expects 'pm25' (no underscore)
+        pm25: point.pm2_5,
         pm10: point.pm10,
-        temperature: point.temperature_c, // Frontend expects 'temperature'
-        humidity: point.humidity_pct, // Frontend expects 'humidity'
+        temperature: point.temperature_c,
+        humidity: point.humidity_pct,
         pressure_hpa: point.pressure_hpa,
         no2: gasData.NO2_ppb,
         o3: gasData.O3_ppb,
@@ -244,22 +239,18 @@ router.get('/:deviceId/current-metrics', async (req, res) => {
   }
 });
 
-// ✅✅✅ UPDATED HISTORY ROUTE WITH GAS CONVERSION ✅✅✅
-// GET /api/sensor/history
-// Historical data with filters, aggregation, and GAS CONVERSION
-
-// COMPREHENSIVE HISTORY ROUTE - Supports multiple viewing modes
-// Replace the /history route in sensorData.js with this
-
+// ============================================
+// ✅ UPDATED: HISTORY ROUTE WITH timestamp_device FIX
+// ============================================
 router.get('/history', async (req, res) => {
   try {
     const { 
       startDate, 
       endDate, 
       deviceId, 
-      viewMode = 'auto',  // 'auto', 'detailed', 'aggregated'
-      limit = 5000,        // Max points to return
-      page = 1             // For pagination if needed
+      viewMode = 'auto',
+      limit = 5000,
+      page = 1
     } = req.query;
     
     // Build match query
@@ -269,62 +260,61 @@ router.get('/history', async (req, res) => {
       matchQuery['metadata.device_id'] = deviceId;
     }
     
+    // ✅ CHANGED: Use timestamp_device instead of timestamp_server
     if (startDate || endDate) {
-      matchQuery['metadata.timestamp_server'] = {};
+      matchQuery['metadata.timestamp_device'] = {};
       if (startDate) {
-        matchQuery['metadata.timestamp_server'].$gte = new Date(`${startDate}T00:00:00.000Z`);
+        // Convert to timestamp_device format (YYYY-MM-DD HH:MM:SS)
+        const startDateTime = new Date(`${startDate}T00:00:00.000Z`);
+        matchQuery['metadata.timestamp_device'].$gte = startDateTime.toISOString().slice(0, 19).replace('T', ' ');
       }
       if (endDate) {
-        matchQuery['metadata.timestamp_server'].$lte = new Date(`${endDate}T23:59:59.999Z`);
+        const endDateTime = new Date(`${endDate}T23:59:59.999Z`);
+        matchQuery['metadata.timestamp_device'].$lte = endDateTime.toISOString().slice(0, 19).replace('T', ' ');
       }
     } else {
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      matchQuery['metadata.timestamp_server'] = { $gte: sevenDaysAgo };
+      matchQuery['metadata.timestamp_device'] = { 
+        $gte: sevenDaysAgo.toISOString().slice(0, 19).replace('T', ' ')
+      };
     }
     
     // ✅ STEP 1: Count total documents
     const totalCount = await SensorReading.countDocuments(matchQuery);
     
     // ✅ STEP 2: Calculate date range
-    const start = matchQuery['metadata.timestamp_server']?.$gte || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const end = matchQuery['metadata.timestamp_server']?.$lte || new Date();
+    const start = startDate ? new Date(`${startDate}T00:00:00.000Z`) : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const end = endDate ? new Date(`${endDate}T23:59:59.999Z`) : new Date();
     const daysDiff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
     
-    // ✅ STEP 3: Determine strategy based on viewMode
+    // ✅ STEP 3: Determine strategy
     let shouldAggregate = false;
     let aggregationType = 'none';
     
     if (viewMode === 'detailed') {
-      // User explicitly wants all raw data
       shouldAggregate = false;
     } else if (viewMode === 'aggregated') {
-      // User explicitly wants aggregated data
       shouldAggregate = true;
       aggregationType = daysDiff > 30 ? 'daily' : 'hourly';
     } else {
-      // Auto mode - smart decision
+      // Auto mode
       if (totalCount > 1000 || daysDiff > 7) {
         shouldAggregate = true;
-        if (daysDiff <= 3) {
-          aggregationType = 'hourly';
-        } else if (daysDiff <= 30) {
-          aggregationType = 'hourly';
-        } else {
-          aggregationType = 'daily';
-        }
+        aggregationType = daysDiff > 30 ? 'daily' : 'hourly';
       }
     }
     
     console.log(`📊 [${viewMode}] ${totalCount} points, ${daysDiff} days → ${shouldAggregate ? aggregationType + ' aggregation' : 'raw data'}`);
     
     // ============================================
-    // OPTION A: RAW DATA (All individual points)
+    // OPTION A: RAW DATA
     // ============================================
     if (!shouldAggregate) {
       const skip = (parseInt(page) - 1) * parseInt(limit);
       
+      // ✅ CHANGED: Sort by timestamp_device
       const rawData = await SensorReading.find(matchQuery)
-        .sort({ 'metadata.timestamp_server': 1 })
+        .sort({ 'metadata.timestamp_device': 1 })
         .skip(skip)
         .limit(parseInt(limit))
         .lean();
@@ -337,21 +327,21 @@ router.get('/history', async (req, res) => {
         deviceMap[d.deviceId] = d;
       });
       
-      // Process each individual reading
+      // Process each reading
       const enrichedData = rawData.map(reading => {
         const device = deviceMap[reading.metadata.device_id];
         const gasData = processAllGases(reading.alphasense_voltages || {});
 
-        // Calculate Malaysian API
         const apiInput = {
           pm10: reading.pm10,
           pm2_5: reading.pm2_5,
-          ...gasData // Contains NO2_ppm, O3_ppm, etc.
+          ...gasData
         };
         const apiResult = calculateMalaysianAPI(apiInput);
         
         return {
-          timestamp: reading.metadata.timestamp_server,
+          // ✅ CHANGED: Use timestamp_device as primary timestamp
+          timestamp: reading.metadata.timestamp_device,
           device_id: reading.metadata.device_id,
           location: reading.metadata.location,
           
@@ -373,7 +363,7 @@ router.get('/history', async (req, res) => {
           SO2_ppb: gasData.SO2_ppb,
           
           count: 1,
-          isRaw: true,  // Flag to indicate raw data point
+          isRaw: true,
           
           deviceDetails: device ? {
             name: device.name,
@@ -405,19 +395,33 @@ router.get('/history', async (req, res) => {
     }
     
     // ============================================
-    // OPTION B: AGGREGATED DATA (Hourly/Daily)
+    // OPTION B: AGGREGATED DATA
     // ============================================
+    // ✅ CHANGED: Group by timestamp_device substring
     let dateFormat = aggregationType === 'daily' ? "%Y-%m-%d" : "%Y-%m-%d %H:00";
     
     const pipeline = [
       { $match: matchQuery },
       {
+        $addFields: {
+          // ✅ Extract date portion from timestamp_device string
+          timestamp_date_part: {
+            $substr: [
+              "$metadata.timestamp_device",
+              0,
+              aggregationType === 'daily' ? 10 : 13
+            ]
+          }
+        }
+      },
+      {
         $group: {
           _id: {
-            period: { $dateToString: { format: dateFormat, date: "$metadata.timestamp_server" }},
+            period: "$timestamp_date_part",
             device_id: "$metadata.device_id"
           },
-          timestamp: { $first: "$metadata.timestamp_server" },
+          // ✅ Use timestamp_device as reference
+          timestamp: { $first: "$metadata.timestamp_device" },
           device_id: { $first: "$metadata.device_id" },
           location: { $first: "$metadata.location" },
           
@@ -490,7 +494,6 @@ router.get('/history', async (req, res) => {
         SN4_AE_V: reading.SN4_AE_V
       });
 
-      // Calculate Malaysian API
       const apiInput = {
         pm10: reading.pm10,
         pm2_5: reading.pm2_5,
@@ -521,7 +524,7 @@ router.get('/history', async (req, res) => {
         SO2_ppb: gasData.SO2_ppb,
         
         count: reading.count,
-        isAggregated: true,  // Flag to indicate aggregated data
+        isAggregated: true,
         
         deviceDetails: device ? {
           name: device.name,
@@ -556,7 +559,7 @@ router.get('/history', async (req, res) => {
 });
 
 // ============================================
-// NEW ENDPOINT: Export Raw Data (for CSV download)
+// ✅ UPDATED: EXPORT ROUTE WITH timestamp_device FIX
 // ============================================
 router.get('/history/export', async (req, res) => {
   try {
@@ -568,20 +571,23 @@ router.get('/history/export', async (req, res) => {
       matchQuery['metadata.device_id'] = deviceId;
     }
     
+    // ✅ CHANGED: Use timestamp_device for export
     if (startDate || endDate) {
-      matchQuery['metadata.timestamp_server'] = {};
+      matchQuery['metadata.timestamp_device'] = {};
       if (startDate) {
-        matchQuery['metadata.timestamp_server'].$gte = new Date(`${startDate}T00:00:00.000Z`);
+        const startDateTime = new Date(`${startDate}T00:00:00.000Z`);
+        matchQuery['metadata.timestamp_device'].$gte = startDateTime.toISOString().slice(0, 19).replace('T', ' ');
       }
       if (endDate) {
-        matchQuery['metadata.timestamp_server'].$lte = new Date(`${endDate}T23:59:59.999Z`);
+        const endDateTime = new Date(`${endDate}T23:59:59.999Z`);
+        matchQuery['metadata.timestamp_device'].$lte = endDateTime.toISOString().slice(0, 19).replace('T', ' ');
       }
     }
     
-    // Always get raw data for export (no aggregation)
+    // ✅ CHANGED: Sort by timestamp_device
     const rawData = await SensorReading.find(matchQuery)
-      .sort({ 'metadata.timestamp_server': 1 })
-      .limit(10000) // Safety limit
+      .sort({ 'metadata.timestamp_device': 1 })
+      .limit(10000)
       .lean();
     
     const enrichedData = rawData.map(reading => {
@@ -595,7 +601,8 @@ router.get('/history/export', async (req, res) => {
       const apiResult = calculateMalaysianAPI(apiInput);
       
       return {
-        timestamp: reading.metadata.timestamp_server,
+        // ✅ CHANGED: Export with device timestamp
+        timestamp: reading.metadata.timestamp_device,
         device_id: reading.metadata.device_id,
         location: reading.metadata.location,
         pm2_5: reading.pm2_5 || 0,
@@ -643,8 +650,7 @@ router.get('/history/export', async (req, res) => {
   }
 });
 
-
-// Helper function to get pollutant status
+// Helper function
 function getPollutantStatus(pollutant, value) {
   if (!value) return 'good';
   
