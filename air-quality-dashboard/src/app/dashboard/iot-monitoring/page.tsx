@@ -418,6 +418,12 @@ export default function IoTMonitoringPage() {
                   Log Monitoring
                 </Link>
               </Button>
+              <Button variant="ghost" className="w-full justify-start" asChild>
+                <Link href="/dashboard/notification">
+                  <Bell className="mr-3 h-5 w-5" />
+                  Threshold & Notifications
+                </Link>
+              </Button>
             </div>
           </nav>
         </aside>

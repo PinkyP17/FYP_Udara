@@ -336,6 +336,12 @@ export default function LogMonitoringPage() {
                 <Settings className="mr-3 h-5 w-5" />
                 Log Monitoring
               </Button>
+              <Button variant="ghost" className="w-full justify-start" asChild>
+                <Link href="/dashboard/notification">
+                  <Bell className="mr-3 h-5 w-5" />
+                  Threshold & Notifications
+                </Link>
+              </Button>
             </div>
           </nav>
         </aside>
