@@ -39,6 +39,7 @@ import {
 } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import PdfReportDialog from '@/components/PdfReportDialog';
+import CSVUploadDialog from '@/components/CSVUploadDialog';
 
 // ✅ COMPLETE CONFIG: PM2.5, PM10, and 4 gas pollutants
 const pollutantColors = {
@@ -719,13 +720,17 @@ export default function HistoricalDataPage() {
             </Card>
           </div>
 
-          {/* Action Buttons */}
+          {/* Action Buttons - ADD CSV UPLOAD HERE */}
           <div className="flex flex-wrap gap-3">
             {/* ✅ CSV EXPORT - Always raw data */}
             <Button variant="outline" className="flex items-center gap-2" onClick={handleExportCSV}>
               <Download className="h-4 w-4" />
               Download CSV (Raw Data)
             </Button>
+            
+            {/* 🆕 CSV UPLOAD - NEW BUTTON */}
+            <CSVUploadDialog />
+            
             <PdfReportDialog />
             <Button variant="outline" className="flex items-center gap-2">
               <Share className="h-4 w-4" />
