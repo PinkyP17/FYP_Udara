@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Check, AlertTriangle, X } from "lucide-react";
+import { useState, useEffect } from 'react';
+import { Check, AlertTriangle, X } from 'lucide-react';
 
 // Cat SVG component
 function CatIcon({ className }: { className?: string }) {
@@ -14,7 +14,7 @@ interface Device {
   id: string;
   name: string;
   deviceId: string;
-  status: "online" | "offline";
+  status: 'online' | 'offline';
 }
 
 interface PingModalProps {
@@ -24,20 +24,18 @@ interface PingModalProps {
 }
 
 export default function PingModal({ isOpen, onClose, device }: PingModalProps) {
-  console.log("PingModal rendered with isOpen:", isOpen, "device:", device);
-  const [pingStatus, setPingStatus] = useState<
-    "pinging" | "success" | "failed"
-  >("pinging");
+  console.log('PingModal rendered with isOpen:', isOpen, 'device:', device);
+  const [pingStatus, setPingStatus] = useState<'pinging' | 'success' | 'failed'>('pinging');
 
   useEffect(() => {
     if (isOpen) {
-      setPingStatus("pinging");
+      setPingStatus('pinging');
 
       const timer = setTimeout(() => {
-        if (device.status === "offline") {
-          setPingStatus("failed");
+        if (device.status === 'offline') {
+          setPingStatus('failed');
         } else {
-          setPingStatus("success");
+          setPingStatus('success');
         }
       }, 5000);
 
@@ -46,7 +44,7 @@ export default function PingModal({ isOpen, onClose, device }: PingModalProps) {
   }, [isOpen, device.status]);
 
   const handleClose = () => {
-    setPingStatus("pinging");
+    setPingStatus('pinging');
     onClose();
   };
 
@@ -57,39 +55,36 @@ export default function PingModal({ isOpen, onClose, device }: PingModalProps) {
       <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-semibold">Ping Device</h3>
-          <button
-            onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600"
-          >
+          <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="flex flex-col items-center justify-center py-8">
           <div className="relative mb-6">
-            {pingStatus === "pinging" && (
+            {pingStatus === 'pinging' && (
               <div className="relative w-64 h-32 flex items-center justify-center">
                 {/* Wavy animated dots with more pronounced wave effect */}
                 <div className="flex items-end space-x-3">
                   <div
                     className="w-5 h-5 bg-blue-300 rounded-full"
                     style={{
-                      animation: "wave 1.2s ease-in-out infinite",
-                      animationDelay: "0s",
+                      animation: 'wave 1.2s ease-in-out infinite',
+                      animationDelay: '0s',
                     }}
                   ></div>
                   <div
                     className="w-5 h-5 bg-blue-400 rounded-full"
                     style={{
-                      animation: "wave 1.2s ease-in-out infinite",
-                      animationDelay: "0.15s",
+                      animation: 'wave 1.2s ease-in-out infinite',
+                      animationDelay: '0.15s',
                     }}
                   ></div>
                   <div
                     className="w-6 h-6 bg-blue-500 rounded-full"
                     style={{
-                      animation: "wave 1.2s ease-in-out infinite",
-                      animationDelay: "0.3s",
+                      animation: 'wave 1.2s ease-in-out infinite',
+                      animationDelay: '0.3s',
                     }}
                   ></div>
 
@@ -97,8 +92,8 @@ export default function PingModal({ isOpen, onClose, device }: PingModalProps) {
                   <div
                     className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center mx-2"
                     style={{
-                      animation: "wave 1.2s ease-in-out infinite",
-                      animationDelay: "0.45s",
+                      animation: 'wave 1.2s ease-in-out infinite',
+                      animationDelay: '0.45s',
                     }}
                   >
                     <CatIcon className="w-7 h-7 text-white" />
@@ -107,22 +102,22 @@ export default function PingModal({ isOpen, onClose, device }: PingModalProps) {
                   <div
                     className="w-6 h-6 bg-blue-500 rounded-full"
                     style={{
-                      animation: "wave 1.2s ease-in-out infinite",
-                      animationDelay: "0.6s",
+                      animation: 'wave 1.2s ease-in-out infinite',
+                      animationDelay: '0.6s',
                     }}
                   ></div>
                   <div
                     className="w-5 h-5 bg-blue-400 rounded-full"
                     style={{
-                      animation: "wave 1.2s ease-in-out infinite",
-                      animationDelay: "0.75s",
+                      animation: 'wave 1.2s ease-in-out infinite',
+                      animationDelay: '0.75s',
                     }}
                   ></div>
                   <div
                     className="w-5 h-5 bg-blue-300 rounded-full"
                     style={{
-                      animation: "wave 1.2s ease-in-out infinite",
-                      animationDelay: "0.9s",
+                      animation: 'wave 1.2s ease-in-out infinite',
+                      animationDelay: '0.9s',
                     }}
                   ></div>
                 </div>
@@ -142,7 +137,7 @@ export default function PingModal({ isOpen, onClose, device }: PingModalProps) {
               </div>
             )}
 
-            {pingStatus === "success" && (
+            {pingStatus === 'success' && (
               <div className="w-32 h-32 flex items-center justify-center">
                 <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center animate-pulse">
                   <Check className="w-8 h-8 text-white" />
@@ -150,7 +145,7 @@ export default function PingModal({ isOpen, onClose, device }: PingModalProps) {
               </div>
             )}
 
-            {pingStatus === "failed" && (
+            {pingStatus === 'failed' && (
               <div className="w-32 h-32 flex items-center justify-center">
                 <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center animate-pulse">
                   <AlertTriangle className="w-8 h-8 text-white" />
@@ -161,35 +156,31 @@ export default function PingModal({ isOpen, onClose, device }: PingModalProps) {
 
           <div className="text-center">
             <h3 className="text-lg font-semibold mb-2">{device.name}</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Device ID: {device.deviceId}
-            </p>
+            <p className="text-sm text-gray-600 mb-4">Device ID: {device.deviceId}</p>
 
-            {pingStatus === "pinging" && (
+            {pingStatus === 'pinging' && (
               <div>
                 <p className="text-blue-600 font-medium">Pinging device...</p>
                 <p className="text-sm text-gray-500">Please wait</p>
               </div>
             )}
 
-            {pingStatus === "success" && (
+            {pingStatus === 'success' && (
               <div>
                 <p className="text-green-600 font-medium">Device Response</p>
                 <p className="text-sm text-gray-500">Connection successful</p>
               </div>
             )}
 
-            {pingStatus === "failed" && (
+            {pingStatus === 'failed' && (
               <div>
                 <p className="text-red-600 font-medium">No Response</p>
-                <p className="text-sm text-gray-500">
-                  Device appears to be offline
-                </p>
+                <p className="text-sm text-gray-500">Device appears to be offline</p>
               </div>
             )}
           </div>
 
-          {pingStatus !== "pinging" && (
+          {pingStatus !== 'pinging' && (
             <button
               onClick={handleClose}
               className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

@@ -1,17 +1,17 @@
-import { useState, useEffect } from "react";
-import { X, Save, Loader2, AlertCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { useState, useEffect } from 'react';
+import { X, Save, Loader2, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Device {
   id: string;
@@ -31,21 +31,16 @@ interface ConfigureModalProps {
   onUpdate?: () => void;
 }
 
-export default function ConfigureModal({
-  isOpen,
-  onClose,
-  device,
-  onUpdate,
-}: ConfigureModalProps) {
+export default function ConfigureModal({ isOpen, onClose, device, onUpdate }: ConfigureModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
-    name: "",
-    address: "",
-    status: "",
-    notes: "",
+    name: '',
+    address: '',
+    status: '',
+    notes: '',
     latitude: 0,
     longitude: 0,
   });
@@ -54,10 +49,10 @@ export default function ConfigureModal({
   useEffect(() => {
     if (device) {
       setFormData({
-        name: device.name || "",
-        address: device.location || "",
-        status: device.status === "online" ? "active" : device.status,
-        notes: device.description || "",
+        name: device.name || '',
+        address: device.location || '',
+        status: device.status === 'online' ? 'active' : device.status,
+        notes: device.description || '',
         latitude: device.lat || 0,
         longitude: device.lng || 0,
       });
@@ -74,8 +69,8 @@ export default function ConfigureModal({
       setError(null);
       setSuccess(null);
 
-      const API_BASE_URL = "http://localhost:4000/api";
-      
+      const API_BASE_URL = 'http://localhost:4000/api';
+
       // Prepare update payload
       const payload = {
         name: formData.name,
@@ -86,35 +81,34 @@ export default function ConfigureModal({
             longitude: parseFloat(formData.longitude.toString()),
           },
         },
-        status: formData.status === "online" ? "active" : formData.status,
+        status: formData.status === 'online' ? 'active' : formData.status,
         notes: formData.notes,
       };
 
       const response = await fetch(`${API_BASE_URL}/devices/${device.id}`, {
-        method: "PUT",
+        method: 'PUT',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update device");
+        throw new Error(errorData.error || 'Failed to update device');
       }
 
-      setSuccess("Device updated successfully!");
+      setSuccess('Device updated successfully!');
       if (onUpdate) onUpdate();
-      
+
       // Close after a short delay to show success message
       setTimeout(() => {
         onClose();
         setSuccess(null);
       }, 1500);
-
     } catch (err: any) {
-      console.error("Error updating device:", err);
-      setError(err.message || "An error occurred while updating");
+      console.error('Error updating device:', err);
+      setError(err.message || 'An error occurred while updating');
     } finally {
       setLoading(false);
     }
@@ -140,7 +134,7 @@ export default function ConfigureModal({
               {error}
             </div>
           )}
-          
+
           {success && (
             <div className="bg-green-50 text-green-700 p-3 rounded-md flex items-center gap-2 text-sm">
               <Save className="w-4 h-4" />
@@ -153,7 +147,7 @@ export default function ConfigureModal({
               <TabsTrigger value="general">General Info</TabsTrigger>
               <TabsTrigger value="location">Location</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="general" className="space-y-4 pt-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Device Name</Label>
@@ -213,7 +207,9 @@ export default function ConfigureModal({
                     type="number"
                     step="any"
                     value={formData.latitude}
-                    onChange={(e) => setFormData({ ...formData, latitude: parseFloat(e.target.value) })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, latitude: parseFloat(e.target.value) })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -223,11 +219,13 @@ export default function ConfigureModal({
                     type="number"
                     step="any"
                     value={formData.longitude}
-                    onChange={(e) => setFormData({ ...formData, longitude: parseFloat(e.target.value) })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, longitude: parseFloat(e.target.value) })
+                    }
                   />
                 </div>
               </div>
-              
+
               <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded">
                 <p>Note: Updating coordinates will move the device pin on the map.</p>
               </div>
@@ -238,7 +236,11 @@ export default function ConfigureModal({
             <Button variant="outline" onClick={onClose} disabled={loading}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={loading} className="bg-blue-600 hover:bg-blue-700">
+            <Button
+              onClick={handleSave}
+              disabled={loading}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />

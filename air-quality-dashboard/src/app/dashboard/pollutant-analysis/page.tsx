@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import {
   Wind,
   Calendar,
@@ -21,10 +21,10 @@ import {
   Home,
   Loader2,
   AlertCircle,
-} from "lucide-react";
-import { useState, useEffect } from "react";
-import { UserButton, useUser } from "@clerk/nextjs";
-import Link from "next/link";
+} from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { UserButton, useUser } from '@clerk/nextjs';
+import Link from 'next/link';
 import {
   Line,
   LineChart,
@@ -33,50 +33,46 @@ import {
   CartesianGrid,
   ResponsiveContainer,
   Legend,
-} from "recharts";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
+} from 'recharts';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 
 const pollutantColors = {
-  pm25: "#ef4444", // red
-  pm10: "#06b6d4", // cyan
-  co: "#6b7280", // gray (changed from co2)
-  no2: "#f59e0b", // amber
-  so2: "#10b981", // emerald
-  o3: "#8b5cf6", // purple (added)
+  pm25: '#ef4444', // red
+  pm10: '#06b6d4', // cyan
+  co: '#6b7280', // gray (changed from co2)
+  no2: '#f59e0b', // amber
+  so2: '#10b981', // emerald
+  o3: '#8b5cf6', // purple (added)
 };
 
 const chartConfig = {
-  pm25: { label: "PM2.5", color: "#ef4444" },
-  pm10: { label: "PM10", color: "#06b6d4" },
-  co: { label: "CO", color: "#6b7280" },
-  no2: { label: "NO2", color: "#f59e0b" },
-  so2: { label: "SO2", color: "#10b981" },
-  o3: { label: "O3", color: "#8b5cf6" },
+  pm25: { label: 'PM2.5', color: '#ef4444' },
+  pm10: { label: 'PM10', color: '#06b6d4' },
+  co: { label: 'CO', color: '#6b7280' },
+  no2: { label: 'NO2', color: '#f59e0b' },
+  so2: { label: 'SO2', color: '#10b981' },
+  o3: { label: 'O3', color: '#8b5cf6' },
 };
 
 const pollutants = [
-  { id: "pm25", label: "PM2.5 (μg/m³)" },
-  { id: "pm10", label: "PM10 (μg/m³)" },
-  { id: "co", label: "CO (ppm)" },
-  { id: "no2", label: "NO2 (ppb)" },
-  { id: "o3", label: "O3 (ppb)" },
-  { id: "so2", label: "SO2 (ppb)" },
+  { id: 'pm25', label: 'PM2.5 (μg/m³)' },
+  { id: 'pm10', label: 'PM10 (μg/m³)' },
+  { id: 'co', label: 'CO (ppm)' },
+  { id: 'no2', label: 'NO2 (ppb)' },
+  { id: 'o3', label: 'O3 (ppb)' },
+  { id: 'so2', label: 'SO2 (ppb)' },
 ];
 
 // Helper to safely get status string from mixed device schemas
 const getDeviceStatus = (device) => {
-  if (!device || !device.status) return "unknown";
-  
+  if (!device || !device.status) return 'unknown';
+
   // Handle new scheme where status is an object
-  if (typeof device.status === "object") {
+  if (typeof device.status === 'object') {
     // Prefer connection status (online/offline) if available, otherwise operational status
-    return device.status.connection || device.status.operational || "unknown";
+    return device.status.connection || device.status.operational || 'unknown';
   }
-  
+
   // Handle old scheme where status is a string
   return String(device.status);
 };
@@ -84,25 +80,21 @@ const getDeviceStatus = (device) => {
 // Helper to determine if device is considered "online/active"
 const isDeviceOnline = (device) => {
   const status = getDeviceStatus(device).toLowerCase();
-  return status === "active" || status === "online" || status === "connected";
+  return status === 'active' || status === 'online' || status === 'connected';
 };
 
 export default function PollutantAnalysisPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("graph");
-  const [selectedPollutants, setSelectedPollutants] = useState([
-    "pm25",
-    "pm10",
-    "co",
-  ]);
+  const [activeTab, setActiveTab] = useState('graph');
+  const [selectedPollutants, setSelectedPollutants] = useState(['pm25', 'pm10', 'co']);
   const [selectedDevices, setSelectedDevices] = useState([]);
   const [selectAllDevices, setSelectAllDevices] = useState(false);
-  const [pollutantSearch, setPollutantSearch] = useState("");
-  const [deviceSearch, setDeviceSearch] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [selectedPeriod, setSelectedPeriod] = useState("7days");
-  const [viewMode, setViewMode] = useState("auto"); // auto, detailed, aggregated
+  const [pollutantSearch, setPollutantSearch] = useState('');
+  const [deviceSearch, setDeviceSearch] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [selectedPeriod, setSelectedPeriod] = useState('7days');
+  const [viewMode, setViewMode] = useState('auto'); // auto, detailed, aggregated
   const { user } = useUser();
 
   // API data states
@@ -114,7 +106,7 @@ export default function PollutantAnalysisPage() {
   const [error, setError] = useState(null);
 
   // API base URL
-  const API_BASE_URL = "http://localhost:4000/api";
+  const API_BASE_URL = 'http://localhost:4000/api';
 
   // Fetch devices on component mount
   useEffect(() => {
@@ -134,7 +126,7 @@ export default function PollutantAnalysisPage() {
   // Clear period selection when custom dates are set
   useEffect(() => {
     if (startDate || endDate) {
-      setSelectedPeriod("");
+      setSelectedPeriod('');
     }
   }, [startDate, endDate]);
 
@@ -149,17 +141,17 @@ export default function PollutantAnalysisPage() {
       }
 
       const devicesData = await response.json();
-      console.log("Fetched devices:", devicesData);
+      console.log('Fetched devices:', devicesData);
 
       // Handle different response formats
       const deviceList = Array.isArray(devicesData)
         ? devicesData
         : devicesData.devices || devicesData.data || [];
-      
+
       setDevices(deviceList);
     } catch (err) {
-      console.error("Error fetching devices:", err);
-      setError("Failed to load devices. Please try again.");
+      console.error('Error fetching devices:', err);
+      setError('Failed to load devices. Please try again.');
     } finally {
       setDevicesLoading(false);
     }
@@ -169,23 +161,23 @@ export default function PollutantAnalysisPage() {
   const fetchPollutantData = async () => {
     // Validation
     if (selectedDevices.length === 0) {
-      setError("Please select at least one device");
+      setError('Please select at least one device');
       return;
     }
 
     if (selectedPollutants.length === 0) {
-      setError("Please select at least one pollutant");
+      setError('Please select at least one pollutant');
       return;
     }
 
     // Validate date range if using custom dates
     if (!selectedPeriod && (startDate || endDate)) {
       if (!startDate || !endDate) {
-        setError("Please select both start and end dates for custom range");
+        setError('Please select both start and end dates for custom range');
         return;
       }
       if (new Date(startDate) > new Date(endDate)) {
-        setError("Start date must be before end date");
+        setError('Start date must be before end date');
         return;
       }
     }
@@ -201,39 +193,43 @@ export default function PollutantAnalysisPage() {
       if (selectedPeriod) {
         const now = new Date();
         calculatedEndDate = now.toISOString().split('T')[0];
-        
+
         switch (selectedPeriod) {
-          case "7days":
+          case '7days':
             calculatedStartDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-              .toISOString().split('T')[0];
+              .toISOString()
+              .split('T')[0];
             break;
-          case "30days":
+          case '30days':
             calculatedStartDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-              .toISOString().split('T')[0];
+              .toISOString()
+              .split('T')[0];
             break;
-          case "3months":
+          case '3months':
             calculatedStartDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
-              .toISOString().split('T')[0];
+              .toISOString()
+              .split('T')[0];
             break;
           default:
             calculatedStartDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-              .toISOString().split('T')[0];
+              .toISOString()
+              .split('T')[0];
         }
       }
 
       // Fetch data for each selected device
       const allData = [];
-      
+
       for (const deviceId of selectedDevices) {
         const params = new URLSearchParams({
           deviceId: deviceId,
           startDate: calculatedStartDate,
           endDate: calculatedEndDate,
-          viewMode: activeTab === "graph" ? "aggregated" : "detailed",
+          viewMode: activeTab === 'graph' ? 'aggregated' : 'detailed',
         });
 
         const url = `${API_BASE_URL}/sensor/history?${params}`;
-        console.log("Fetching from URL:", url);
+        console.log('Fetching from URL:', url);
 
         const response = await fetch(url);
         if (!response.ok) {
@@ -250,7 +246,7 @@ export default function PollutantAnalysisPage() {
       }
 
       if (allData.length === 0) {
-        setError("No data found for the selected criteria");
+        setError('No data found for the selected criteria');
         setAnalysisData([]);
         setRawPollutantData([]);
         return;
@@ -258,7 +254,7 @@ export default function PollutantAnalysisPage() {
 
       console.log(`Total data points fetched: ${allData.length}`);
 
-      if (activeTab === "graph") {
+      if (activeTab === 'graph') {
         // Process for graph view
         const processedData = processDataForChart(allData);
         setAnalysisData(processedData);
@@ -266,9 +262,8 @@ export default function PollutantAnalysisPage() {
         // For table view, use raw data
         setRawPollutantData(allData);
       }
-
     } catch (err) {
-      console.error("Error fetching pollutant data:", err);
+      console.error('Error fetching pollutant data:', err);
       setError(`Failed to load pollutant data: ${err.message}`);
     } finally {
       setLoading(false);
@@ -278,8 +273,8 @@ export default function PollutantAnalysisPage() {
   const processDataForChart = (data) => {
     if (!data || data.length === 0) return [];
 
-    console.log("Processing data for chart:", data.length, "records");
-    console.log("Sample record:", data[0]);
+    console.log('Processing data for chart:', data.length, 'records');
+    console.log('Sample record:', data[0]);
 
     // Group data by time period
     const groupedData = {};
@@ -287,7 +282,7 @@ export default function PollutantAnalysisPage() {
     data.forEach((record) => {
       const timestamp = record.timestamp;
       if (!timestamp) {
-        console.warn("Record missing timestamp:", record);
+        console.warn('Record missing timestamp:', record);
         return;
       }
 
@@ -308,12 +303,12 @@ export default function PollutantAnalysisPage() {
       }
 
       // Add values if they exist
-      if (typeof record.pm2_5 === "number") groupedData[timeKey].pm25.push(record.pm2_5);
-      if (typeof record.pm10 === "number") groupedData[timeKey].pm10.push(record.pm10);
-      if (typeof record.CO_ppm === "number") groupedData[timeKey].co.push(record.CO_ppm);
-      if (typeof record.NO2_ppb === "number") groupedData[timeKey].no2.push(record.NO2_ppb);
-      if (typeof record.O3_ppb === "number") groupedData[timeKey].o3.push(record.O3_ppb);
-      if (typeof record.SO2_ppb === "number") groupedData[timeKey].so2.push(record.SO2_ppb);
+      if (typeof record.pm2_5 === 'number') groupedData[timeKey].pm25.push(record.pm2_5);
+      if (typeof record.pm10 === 'number') groupedData[timeKey].pm10.push(record.pm10);
+      if (typeof record.CO_ppm === 'number') groupedData[timeKey].co.push(record.CO_ppm);
+      if (typeof record.NO2_ppb === 'number') groupedData[timeKey].no2.push(record.NO2_ppb);
+      if (typeof record.O3_ppb === 'number') groupedData[timeKey].o3.push(record.O3_ppb);
+      if (typeof record.SO2_ppb === 'number') groupedData[timeKey].so2.push(record.SO2_ppb);
     });
 
     // Calculate averages and format for chart
@@ -322,27 +317,27 @@ export default function PollutantAnalysisPage() {
         time: group.time,
         pm25:
           group.pm25.length > 0
-            ? Math.round(group.pm25.reduce((a, b) => a + b, 0) / group.pm25.length * 10) / 10
+            ? Math.round((group.pm25.reduce((a, b) => a + b, 0) / group.pm25.length) * 10) / 10
             : null,
         pm10:
           group.pm10.length > 0
-            ? Math.round(group.pm10.reduce((a, b) => a + b, 0) / group.pm10.length * 10) / 10
+            ? Math.round((group.pm10.reduce((a, b) => a + b, 0) / group.pm10.length) * 10) / 10
             : null,
         co:
           group.co.length > 0
-            ? Math.round(group.co.reduce((a, b) => a + b, 0) / group.co.length * 10) / 10
+            ? Math.round((group.co.reduce((a, b) => a + b, 0) / group.co.length) * 10) / 10
             : null,
         no2:
           group.no2.length > 0
-            ? Math.round(group.no2.reduce((a, b) => a + b, 0) / group.no2.length * 10) / 10
+            ? Math.round((group.no2.reduce((a, b) => a + b, 0) / group.no2.length) * 10) / 10
             : null,
         o3:
           group.o3.length > 0
-            ? Math.round(group.o3.reduce((a, b) => a + b, 0) / group.o3.length * 10) / 10
+            ? Math.round((group.o3.reduce((a, b) => a + b, 0) / group.o3.length) * 10) / 10
             : null,
         so2:
           group.so2.length > 0
-            ? Math.round(group.so2.reduce((a, b) => a + b, 0) / group.so2.length * 10) / 10
+            ? Math.round((group.so2.reduce((a, b) => a + b, 0) / group.so2.length) * 10) / 10
             : null,
       }))
       .filter((item) => {
@@ -365,9 +360,7 @@ export default function PollutantAnalysisPage() {
     if (checked) {
       setSelectedPollutants([...selectedPollutants, pollutantId]);
     } else {
-      setSelectedPollutants(
-        selectedPollutants.filter((id) => id !== pollutantId)
-      );
+      setSelectedPollutants(selectedPollutants.filter((id) => id !== pollutantId));
     }
   };
 
@@ -392,17 +385,17 @@ export default function PollutantAnalysisPage() {
   const handlePeriodSelection = (period) => {
     setSelectedPeriod(period);
     // Clear custom dates when period is selected
-    setStartDate("");
-    setEndDate("");
+    setStartDate('');
+    setEndDate('');
   };
 
   const clearSelections = () => {
     setSelectedPollutants([]);
     setSelectedDevices([]);
     setSelectAllDevices(false);
-    setStartDate("");
-    setEndDate("");
-    setSelectedPeriod("7days");
+    setStartDate('');
+    setEndDate('');
+    setSelectedPeriod('7days');
     setAnalysisData([]);
     setRawPollutantData([]);
     setError(null);
@@ -430,26 +423,26 @@ export default function PollutantAnalysisPage() {
 
   // Export function
   const handleExport = () => {
-    const dataToExport = activeTab === "graph" ? analysisData : rawPollutantData;
-    
+    const dataToExport = activeTab === 'graph' ? analysisData : rawPollutantData;
+
     if (dataToExport.length === 0) {
-      alert("No data to export");
+      alert('No data to export');
       return;
     }
 
     // Convert to CSV
-    const headers = Object.keys(dataToExport[0]).join(",");
-    const rows = dataToExport.map((row) => 
-      Object.values(row).map((val) => 
-        typeof val === 'object' ? JSON.stringify(val) : val
-      ).join(",")
+    const headers = Object.keys(dataToExport[0]).join(',');
+    const rows = dataToExport.map((row) =>
+      Object.values(row)
+        .map((val) => (typeof val === 'object' ? JSON.stringify(val) : val))
+        .join(',')
     );
-    const csv = [headers, ...rows].join("\n");
+    const csv = [headers, ...rows].join('\n');
 
     // Download
-    const blob = new Blob([csv], { type: "text/csv" });
+    const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url;
     a.download = `pollutant-data-${new Date().toISOString()}.csv`;
     a.click();
@@ -475,9 +468,7 @@ export default function PollutantAnalysisPage() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Udara</h1>
-                <p className="text-sm text-gray-500">
-                  Welcome back, {user?.firstName || "User"}!
-                </p>
+                <p className="text-sm text-gray-500">Welcome back, {user?.firstName || 'User'}!</p>
               </div>
             </div>
           </div>
@@ -492,7 +483,7 @@ export default function PollutantAnalysisPage() {
             <UserButton
               appearance={{
                 elements: {
-                  avatarBox: "w-8 h-8",
+                  avatarBox: 'w-8 h-8',
                 },
               }}
               afterSignOutUrl="/"
@@ -505,7 +496,7 @@ export default function PollutantAnalysisPage() {
         {/* Sidebar */}
         <aside
           className={`${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           } md:translate-x-0 fixed md:static inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transition-transform duration-300 ease-in-out`}
         >
           <nav className="mt-8 px-4">
@@ -522,10 +513,7 @@ export default function PollutantAnalysisPage() {
                   Historical Air Quality Data
                 </Link>
               </Button>
-              <Button
-                variant="ghost"
-                className="w-full justify-start bg-blue-50 text-blue-700"
-              >
+              <Button variant="ghost" className="w-full justify-start bg-blue-50 text-blue-700">
                 <TrendingUp className="mr-3 h-5 w-5" />
                 Pollutant Data Analysis
               </Button>
@@ -559,9 +547,7 @@ export default function PollutantAnalysisPage() {
           </div>
 
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-6">
-              Pollutant Data Analysis
-            </h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-6">Pollutant Data Analysis</h1>
           </div>
 
           {/* Error Display */}
@@ -595,21 +581,13 @@ export default function PollutantAnalysisPage() {
                 </div>
                 <div className="space-y-3 max-h-48 overflow-y-auto">
                   {filteredPollutants.map((pollutant) => (
-                    <div
-                      key={pollutant.id}
-                      className="flex items-center space-x-2"
-                    >
+                    <div key={pollutant.id} className="flex items-center space-x-2">
                       <Checkbox
                         id={pollutant.id}
                         checked={selectedPollutants.includes(pollutant.id)}
-                        onCheckedChange={(checked) =>
-                          handlePollutantChange(pollutant.id, checked)
-                        }
+                        onCheckedChange={(checked) => handlePollutantChange(pollutant.id, checked)}
                       />
-                      <Label
-                        htmlFor={pollutant.id}
-                        className="text-sm cursor-pointer"
-                      >
+                      <Label htmlFor={pollutant.id} className="text-sm cursor-pointer">
                         {pollutant.label}
                       </Label>
                     </div>
@@ -636,9 +614,7 @@ export default function PollutantAnalysisPage() {
                 {devicesLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin" />
-                    <span className="ml-2 text-sm text-gray-500">
-                      Loading devices...
-                    </span>
+                    <span className="ml-2 text-sm text-gray-500">Loading devices...</span>
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-48 overflow-y-auto">
@@ -646,26 +622,18 @@ export default function PollutantAnalysisPage() {
                       <Checkbox
                         id="select-all"
                         checked={selectAllDevices}
-                        onCheckedChange={(checked) =>
-                          handleSelectAllDevices(checked)
-                        }
+                        onCheckedChange={(checked) => handleSelectAllDevices(checked)}
                       />
-                      <Label
-                        htmlFor="select-all"
-                        className="text-sm font-medium cursor-pointer"
-                      >
+                      <Label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
                         Select All Devices
                       </Label>
                     </div>
                     {filteredDevices.map((device) => {
                       const statusLabel = getDeviceStatus(device);
                       const isOnline = isDeviceOnline(device);
-                      
+
                       return (
-                        <div
-                          key={device.deviceId}
-                          className="flex items-center justify-between"
-                        >
+                        <div key={device.deviceId} className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">
                             <Checkbox
                               id={device.deviceId}
@@ -675,10 +643,7 @@ export default function PollutantAnalysisPage() {
                               }
                             />
                             <div>
-                              <Label
-                                htmlFor={device.deviceId}
-                                className="text-sm cursor-pointer"
-                              >
+                              <Label htmlFor={device.deviceId} className="text-sm cursor-pointer">
                                 {device.name}
                               </Label>
                               <p className="text-xs text-gray-500">
@@ -687,11 +652,9 @@ export default function PollutantAnalysisPage() {
                             </div>
                           </div>
                           <Badge
-                            variant={isOnline ? "default" : "secondary"}
+                            variant={isOnline ? 'default' : 'secondary'}
                             className={
-                              isOnline
-                                ? "bg-green-100 text-green-800"
-                                : "bg-gray-100 text-gray-600"
+                              isOnline ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
                             }
                           >
                             {statusLabel}
@@ -739,32 +702,26 @@ export default function PollutantAnalysisPage() {
                 <div className="space-y-2">
                   <div className="flex space-x-2">
                     <Button
-                      variant={
-                        selectedPeriod === "7days" ? "default" : "outline"
-                      }
+                      variant={selectedPeriod === '7days' ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => handlePeriodSelection("7days")}
+                      onClick={() => handlePeriodSelection('7days')}
                       className="flex-1"
                     >
                       Last 7 days
                     </Button>
                     <Button
-                      variant={
-                        selectedPeriod === "30days" ? "default" : "outline"
-                      }
+                      variant={selectedPeriod === '30days' ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => handlePeriodSelection("30days")}
+                      onClick={() => handlePeriodSelection('30days')}
                       className="flex-1"
                     >
                       Last 30 days
                     </Button>
                   </div>
                   <Button
-                    variant={
-                      selectedPeriod === "3months" ? "default" : "outline"
-                    }
+                    variant={selectedPeriod === '3months' ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => handlePeriodSelection("3months")}
+                    onClick={() => handlePeriodSelection('3months')}
                     className="w-full"
                   >
                     Last 3 months
@@ -779,17 +736,17 @@ export default function PollutantAnalysisPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-gray-600">
-                  {selectedPollutants.length} pollutants and{" "}
-                  {selectedDevices.length} devices selected for the period:{" "}
-                  {selectedPeriod === "7days"
-                    ? "Last 7 days"
-                    : selectedPeriod === "30days"
-                    ? "Last 30 days"
-                    : selectedPeriod === "3months"
-                    ? "Last 3 months"
-                    : startDate && endDate
-                    ? `${startDate} to ${endDate}`
-                    : "No period selected"}
+                  {selectedPollutants.length} pollutants and {selectedDevices.length} devices
+                  selected for the period:{' '}
+                  {selectedPeriod === '7days'
+                    ? 'Last 7 days'
+                    : selectedPeriod === '30days'
+                      ? 'Last 30 days'
+                      : selectedPeriod === '3months'
+                        ? 'Last 3 months'
+                        : startDate && endDate
+                          ? `${startDate} to ${endDate}`
+                          : 'No period selected'}
                 </p>
                 <div className="flex space-x-3">
                   <Button variant="outline" onClick={clearSelections}>
@@ -806,7 +763,7 @@ export default function PollutantAnalysisPage() {
                         Loading...
                       </>
                     ) : (
-                      "Proceed to Analysis"
+                      'Proceed to Analysis'
                     )}
                   </Button>
                 </div>
@@ -824,8 +781,8 @@ export default function PollutantAnalysisPage() {
                   size="sm"
                   className="flex items-center gap-2"
                   disabled={
-                    (activeTab === "graph" && analysisData.length === 0) ||
-                    (activeTab === "table" && rawPollutantData.length === 0)
+                    (activeTab === 'graph' && analysisData.length === 0) ||
+                    (activeTab === 'table' && rawPollutantData.length === 0)
                   }
                   onClick={handleExport}
                 >
@@ -838,58 +795,43 @@ export default function PollutantAnalysisPage() {
               {/* Tab Navigation */}
               <div className="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
                 <Button
-                  variant={activeTab === "graph" ? "default" : "ghost"}
+                  variant={activeTab === 'graph' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => setActiveTab("graph")}
-                  className={
-                    activeTab === "graph"
-                      ? "bg-white shadow-sm text-gray-900"
-                      : ""
-                  }
+                  onClick={() => setActiveTab('graph')}
+                  className={activeTab === 'graph' ? 'bg-white shadow-sm text-gray-900' : ''}
                 >
                   Graph View
                 </Button>
                 <Button
-                  variant={activeTab === "table" ? "default" : "ghost"}
+                  variant={activeTab === 'table' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => setActiveTab("table")}
-                  className={
-                    activeTab === "table"
-                      ? "bg-white shadow-sm text-gray-900"
-                      : ""
-                  }
+                  onClick={() => setActiveTab('table')}
+                  className={activeTab === 'table' ? 'bg-white shadow-sm text-gray-900' : ''}
                 >
                   Table View
                 </Button>
                 <Button
-                  variant={activeTab === "summary" ? "default" : "ghost"}
+                  variant={activeTab === 'summary' ? 'default' : 'ghost'}
                   size="sm"
-                  onClick={() => setActiveTab("summary")}
-                  className={
-                    activeTab === "summary"
-                      ? "bg-white shadow-sm text-gray-900"
-                      : ""
-                  }
+                  onClick={() => setActiveTab('summary')}
+                  className={activeTab === 'summary' ? 'bg-white shadow-sm text-gray-900' : ''}
                 >
                   Summary
                 </Button>
               </div>
 
               {/* Chart Content */}
-              {activeTab === "graph" && (
+              {activeTab === 'graph' && (
                 <div className="h-96">
                   {loading ? (
                     <div className="flex items-center justify-center h-full">
                       <Loader2 className="h-8 w-8 animate-spin" />
-                      <span className="ml-2 text-gray-500">
-                        Loading chart data...
-                      </span>
+                      <span className="ml-2 text-gray-500">Loading chart data...</span>
                     </div>
                   ) : analysisData.length === 0 ? (
                     <div className="flex items-center justify-center h-full">
                       <p className="text-gray-500">
-                        No data available. Please select devices and click
-                        "Proceed to Analysis".
+                        No data available. Please select devices and click "Proceed to Analysis".
                       </p>
                     </div>
                   ) : (
@@ -899,28 +841,22 @@ export default function PollutantAnalysisPage() {
                           data={analysisData}
                           margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
                         >
-                          <CartesianGrid
-                            strokeDasharray="3 3"
-                            stroke="#f0f0f0"
-                          />
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                           <XAxis
                             dataKey="time"
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fontSize: 12, fill: "#666" }}
+                            tick={{ fontSize: 12, fill: '#666' }}
                           />
                           <YAxis
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fontSize: 12, fill: "#666" }}
+                            tick={{ fontSize: 12, fill: '#666' }}
                             domain={[0, 'auto']}
                           />
                           <ChartTooltip content={<ChartTooltipContent />} />
-                          <Legend
-                            wrapperStyle={{ paddingTop: "20px" }}
-                            iconType="line"
-                          />
-                          {selectedPollutants.includes("pm25") && (
+                          <Legend wrapperStyle={{ paddingTop: '20px' }} iconType="line" />
+                          {selectedPollutants.includes('pm25') && (
                             <Line
                               type="monotone"
                               dataKey="pm25"
@@ -934,7 +870,7 @@ export default function PollutantAnalysisPage() {
                               name="PM2.5"
                             />
                           )}
-                          {selectedPollutants.includes("pm10") && (
+                          {selectedPollutants.includes('pm10') && (
                             <Line
                               type="monotone"
                               dataKey="pm10"
@@ -948,7 +884,7 @@ export default function PollutantAnalysisPage() {
                               name="PM10"
                             />
                           )}
-                          {selectedPollutants.includes("co") && (
+                          {selectedPollutants.includes('co') && (
                             <Line
                               type="monotone"
                               dataKey="co"
@@ -962,7 +898,7 @@ export default function PollutantAnalysisPage() {
                               name="CO"
                             />
                           )}
-                          {selectedPollutants.includes("no2") && (
+                          {selectedPollutants.includes('no2') && (
                             <Line
                               type="monotone"
                               dataKey="no2"
@@ -976,7 +912,7 @@ export default function PollutantAnalysisPage() {
                               name="NO2"
                             />
                           )}
-                          {selectedPollutants.includes("o3") && (
+                          {selectedPollutants.includes('o3') && (
                             <Line
                               type="monotone"
                               dataKey="o3"
@@ -990,7 +926,7 @@ export default function PollutantAnalysisPage() {
                               name="O3"
                             />
                           )}
-                          {selectedPollutants.includes("so2") && (
+                          {selectedPollutants.includes('so2') && (
                             <Line
                               type="monotone"
                               dataKey="so2"
@@ -1011,18 +947,18 @@ export default function PollutantAnalysisPage() {
                 </div>
               )}
 
-              {activeTab === "table" && (
+              {activeTab === 'table' && (
                 <div>
                   {loading ? (
                     <div className="flex items-center justify-center py-12">
                       <Loader2 className="h-8 w-8 animate-spin" />
-                      <span className="ml-2 text-gray-500">
-                        Loading table data...
-                      </span>
+                      <span className="ml-2 text-gray-500">Loading table data...</span>
                     </div>
                   ) : rawPollutantData.length === 0 ? (
                     <div className="text-center p-12 text-gray-500">
-                      <p>No data available. Please select devices and click "Proceed to Analysis".</p>
+                      <p>
+                        No data available. Please select devices and click "Proceed to Analysis".
+                      </p>
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
@@ -1032,22 +968,22 @@ export default function PollutantAnalysisPage() {
                             <th className="px-4 py-2 text-left">Timestamp</th>
                             <th className="px-4 py-2 text-left">Device ID</th>
                             <th className="px-4 py-2 text-left">Location</th>
-                            {selectedPollutants.includes("pm25") && (
+                            {selectedPollutants.includes('pm25') && (
                               <th className="px-4 py-2 text-right">PM2.5 (μg/m³)</th>
                             )}
-                            {selectedPollutants.includes("pm10") && (
+                            {selectedPollutants.includes('pm10') && (
                               <th className="px-4 py-2 text-right">PM10 (μg/m³)</th>
                             )}
-                            {selectedPollutants.includes("co") && (
+                            {selectedPollutants.includes('co') && (
                               <th className="px-4 py-2 text-right">CO (ppm)</th>
                             )}
-                            {selectedPollutants.includes("no2") && (
+                            {selectedPollutants.includes('no2') && (
                               <th className="px-4 py-2 text-right">NO2 (ppb)</th>
                             )}
-                            {selectedPollutants.includes("o3") && (
+                            {selectedPollutants.includes('o3') && (
                               <th className="px-4 py-2 text-right">O3 (ppb)</th>
                             )}
-                            {selectedPollutants.includes("so2") && (
+                            {selectedPollutants.includes('so2') && (
                               <th className="px-4 py-2 text-right">SO2 (ppb)</th>
                             )}
                           </tr>
@@ -1060,34 +996,34 @@ export default function PollutantAnalysisPage() {
                               </td>
                               <td className="px-4 py-2">{row.device_id}</td>
                               <td className="px-4 py-2">{row.location || 'N/A'}</td>
-                              {selectedPollutants.includes("pm25") && (
+                              {selectedPollutants.includes('pm25') && (
                                 <td className="px-4 py-2 text-right">
-                                  {row.pm2_5?.toFixed(2) || "N/A"}
+                                  {row.pm2_5?.toFixed(2) || 'N/A'}
                                 </td>
                               )}
-                              {selectedPollutants.includes("pm10") && (
+                              {selectedPollutants.includes('pm10') && (
                                 <td className="px-4 py-2 text-right">
-                                  {row.pm10?.toFixed(2) || "N/A"}
+                                  {row.pm10?.toFixed(2) || 'N/A'}
                                 </td>
                               )}
-                              {selectedPollutants.includes("co") && (
+                              {selectedPollutants.includes('co') && (
                                 <td className="px-4 py-2 text-right">
-                                  {row.CO_ppm?.toFixed(2) || "N/A"}
+                                  {row.CO_ppm?.toFixed(2) || 'N/A'}
                                 </td>
                               )}
-                              {selectedPollutants.includes("no2") && (
+                              {selectedPollutants.includes('no2') && (
                                 <td className="px-4 py-2 text-right">
-                                  {row.NO2_ppb?.toFixed(2) || "N/A"}
+                                  {row.NO2_ppb?.toFixed(2) || 'N/A'}
                                 </td>
                               )}
-                              {selectedPollutants.includes("o3") && (
+                              {selectedPollutants.includes('o3') && (
                                 <td className="px-4 py-2 text-right">
-                                  {row.O3_ppb?.toFixed(2) || "N/A"}
+                                  {row.O3_ppb?.toFixed(2) || 'N/A'}
                                 </td>
                               )}
-                              {selectedPollutants.includes("so2") && (
+                              {selectedPollutants.includes('so2') && (
                                 <td className="px-4 py-2 text-right">
-                                  {row.SO2_ppb?.toFixed(2) || "N/A"}
+                                  {row.SO2_ppb?.toFixed(2) || 'N/A'}
                                 </td>
                               )}
                             </tr>
@@ -1102,15 +1038,11 @@ export default function PollutantAnalysisPage() {
                 </div>
               )}
 
-              {activeTab === "summary" && (
+              {activeTab === 'summary' && (
                 <div className="text-center p-12 text-gray-500">
-                  <p>
-                    Summary view will show statistical analysis and insights
-                  </p>
+                  <p>Summary view will show statistical analysis and insights</p>
                   {analysisData.length > 0 && (
-                    <p className="mt-2">
-                      Analysis ready for {analysisData.length} time periods
-                    </p>
+                    <p className="mt-2">Analysis ready for {analysisData.length} time periods</p>
                   )}
                 </div>
               )}
@@ -1122,9 +1054,9 @@ export default function PollutantAnalysisPage() {
             Last updated: {new Date().toLocaleString()}
             {(rawPollutantData.length > 0 || analysisData.length > 0) && (
               <span className="ml-4">
-                Showing data from{" "}
-                {activeTab === "graph" ? analysisData.length : rawPollutantData.length}{" "}
-                records across {selectedDevices.length} devices
+                Showing data from{' '}
+                {activeTab === 'graph' ? analysisData.length : rawPollutantData.length} records
+                across {selectedDevices.length} devices
               </span>
             )}
           </div>

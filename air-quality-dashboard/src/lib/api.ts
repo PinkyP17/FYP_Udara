@@ -70,7 +70,7 @@ export interface CurrentMetrics {
 
 export async function getDashboardData(): Promise<DashboardDevice[]> {
   const response = await fetch(`${API_BASE}/sensor/dashboard`, {
-    cache: 'no-store' // Disable caching for real-time data
+    cache: 'no-store', // Disable caching for real-time data
   });
   if (!response.ok) throw new Error('Failed to fetch dashboard data');
   return response.json();
@@ -78,15 +78,18 @@ export async function getDashboardData(): Promise<DashboardDevice[]> {
 
 export async function getDeviceLatest(deviceId: string): Promise<DeviceLatest> {
   const response = await fetch(`${API_BASE}/sensor/${deviceId}/latest`, {
-    cache: 'no-store'
+    cache: 'no-store',
   });
   if (!response.ok) throw new Error('Failed to fetch device data');
   return response.json();
 }
 
-export async function getDeviceTrends(deviceId: string, hours: number = 24): Promise<{ deviceId: string; hours: number; data: TrendData[] }> {
+export async function getDeviceTrends(
+  deviceId: string,
+  hours: number = 24
+): Promise<{ deviceId: string; hours: number; data: TrendData[] }> {
   const response = await fetch(`${API_BASE}/sensor/${deviceId}/trends?hours=${hours}`, {
-    cache: 'no-store'
+    cache: 'no-store',
   });
   if (!response.ok) throw new Error('Failed to fetch trend data');
   return response.json();
@@ -94,7 +97,7 @@ export async function getDeviceTrends(deviceId: string, hours: number = 24): Pro
 
 export async function getCurrentMetrics(deviceId: string): Promise<CurrentMetrics> {
   const response = await fetch(`${API_BASE}/sensor/${deviceId}/current-metrics`, {
-    cache: 'no-store'
+    cache: 'no-store',
   });
   if (!response.ok) throw new Error('Failed to fetch metrics');
   return response.json();

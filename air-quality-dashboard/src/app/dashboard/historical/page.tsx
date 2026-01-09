@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 import {
   Wind,
   Calendar,
@@ -22,10 +22,10 @@ import {
   Menu,
   Download,
   Share,
-} from "lucide-react";
-import { useState, useEffect } from "react";
-import { UserButton, useUser } from "@clerk/nextjs";
-import Link from "next/link";
+} from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { UserButton, useUser } from '@clerk/nextjs';
+import Link from 'next/link';
 import {
   Line,
   LineChart,
@@ -36,58 +36,59 @@ import {
   Legend,
   Bar,
   BarChart,
-} from "recharts";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
-import PdfReportDialog from "@/components/PdfReportDialog";
+} from 'recharts';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import PdfReportDialog from '@/components/PdfReportDialog';
 
 // ✅ COMPLETE CONFIG: PM2.5, PM10, and 4 gas pollutants
 const pollutantColors = {
-  pm25: "#ef4444",   // red - PM2.5
-  pm10: "#f97316",   // orange - PM10
-  co: "#06b6d4",     // cyan - CO
-  no2: "#6b7280",    // gray - NO2
-  o3: "#f59e0b",     // amber - O3
-  so2: "#10b981",    // emerald - SO2
+  pm25: '#ef4444', // red - PM2.5
+  pm10: '#f97316', // orange - PM10
+  co: '#06b6d4', // cyan - CO
+  no2: '#6b7280', // gray - NO2
+  o3: '#f59e0b', // amber - O3
+  so2: '#10b981', // emerald - SO2
 };
 
 const chartConfig = {
-  pm25: { label: "PM2.5 (µg/m³)", color: "#ef4444" },
-  pm10: { label: "PM10 (µg/m³)", color: "#f97316" },
-  co: { label: "CO (ppm)", color: "#06b6d4" },
-  no2: { label: "NO2 (ppb)", color: "#6b7280" },
-  o3: { label: "O3 (ppb)", color: "#f59e0b" },
-  so2: { label: "SO2 (ppb)", color: "#10b981" },
+  pm25: { label: 'PM2.5 (µg/m³)', color: '#ef4444' },
+  pm10: { label: 'PM10 (µg/m³)', color: '#f97316' },
+  co: { label: 'CO (ppm)', color: '#06b6d4' },
+  no2: { label: 'NO2 (ppb)', color: '#6b7280' },
+  o3: { label: 'O3 (ppb)', color: '#f59e0b' },
+  so2: { label: 'SO2 (ppb)', color: '#10b981' },
 };
 
 export default function HistoricalDataPage() {
   const { user } = useUser();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("line");
+  const [activeTab, setActiveTab] = useState('line');
 
   // --- FILTER STATES ---
-  const [endDate, setEndDate] = useState(new Date().toISOString().split("T")[0]);
+  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [startDate, setStartDate] = useState(
-    new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+    new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   );
-  const [selectedLocation, setSelectedLocation] = useState("all");
+  const [selectedLocation, setSelectedLocation] = useState('all');
 
   // --- VIEW MODE STATE ---
   const [viewMode, setViewMode] = useState<'auto' | 'detailed' | 'aggregated'>('auto');
 
   // --- DATA STATES ---
-  const [chartData, setChartData] = useState([]); 
-  const [devices, setDevices] = useState([]);     
+  const [chartData, setChartData] = useState([]);
+  const [devices, setDevices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [dataMetadata, setDataMetadata] = useState<any>(null);
 
   // --- TOGGLE STATE ---
   // ✅ All 6 pollutants visible by default (PM2.5, PM10, CO, NO2, O3, SO2)
   const [visiblePollutants, setVisiblePollutants] = useState<string[]>([
-    "pm25", "pm10", "co", "no2", "o3", "so2"
+    'pm25',
+    'pm10',
+    'co',
+    'no2',
+    'o3',
+    'so2',
   ]);
 
   // 1. Fetch available devices for Dropdown
@@ -95,14 +96,14 @@ export default function HistoricalDataPage() {
   useEffect(() => {
     const fetchDevices = async () => {
       try {
-        const res = await fetch("http://localhost:4000/api/devices");
+        const res = await fetch('http://localhost:4000/api/devices');
         if (res.ok) {
           const data = await res.json();
-          setDevices(data.devices || []); 
+          setDevices(data.devices || []);
         }
       } catch (error) {
-        console.error("Failed to fetch devices", error);
-        setDevices([]); 
+        console.error('Failed to fetch devices', error);
+        setDevices([]);
       }
     };
     fetchDevices();
@@ -116,68 +117,70 @@ export default function HistoricalDataPage() {
         startDate,
         endDate,
         deviceId: selectedLocation,
-        viewMode: viewMode,  // ✅ Pass view mode
+        viewMode: viewMode, // ✅ Pass view mode
       });
 
       const res = await fetch(`http://localhost:4000/api/sensor/history?${params}`);
-      
+
       if (res.ok) {
         const response = await res.json();
         const rawData = response.data || response; // Handle both formats
         const metadata = response.metadata;
-        
+
         setDataMetadata(metadata); // ✅ Store metadata
-        
+
         // Console log for debugging
         if (metadata) {
-          console.log(`📊 Loaded: ${metadata.returned}/${metadata.total} points (${metadata.aggregated ? metadata.aggregationType : 'raw'})`);
+          console.log(
+            `📊 Loaded: ${metadata.returned}/${metadata.total} points (${metadata.aggregated ? metadata.aggregationType : 'raw'})`
+          );
         }
 
         // ✅ Map backend response with GAS CONCENTRATIONS
         const formattedData = rawData.map((item: any) => ({
           // X-axis label with time
-          date: new Date(item.timestamp).toLocaleDateString("en-MY", {
+          date: new Date(item.timestamp).toLocaleDateString('en-MY', {
             month: 'short',
             day: 'numeric',
             hour: '2-digit',
-            minute: '2-digit'
+            minute: '2-digit',
           }),
           timestamp: item.timestamp,
-          
+
           // Device info
           location: item.deviceDetails?.name || item.device_id,
-          
+
           // ✅ PARTICULATE MATTER (2 metrics)
           pm25: item.pm2_5 || 0,
           pm10: item.pm10 || 0,
-          
+
           // ✅ GAS POLLUTANTS (4 metrics)
           co: item.CO_ppm || 0,
           no2: item.NO2_ppb || 0,
           o3: item.O3_ppb || 0,
           so2: item.SO2_ppb || 0,
-          
+
           // Environmental (for reference)
           temperature: item.temperature_c || 0,
           humidity: item.humidity_pct || 0,
-          
+
           // Calculated AQI
           aqi: item.aqi || 0,
           aqi_status: item.aqi_status || 'good',
-          
+
           // Metadata
           count: item.count || 1,
           isRaw: item.isRaw || false,
-          isAggregated: item.isAggregated || false
+          isAggregated: item.isAggregated || false,
         }));
 
         setChartData(formattedData);
       } else {
-        console.error("Failed to fetch history");
+        console.error('Failed to fetch history');
         setChartData([]);
       }
     } catch (error) {
-      console.error("Error fetching history:", error);
+      console.error('Error fetching history:', error);
       setChartData([]);
     } finally {
       setLoading(false);
@@ -203,13 +206,11 @@ export default function HistoricalDataPage() {
   };
 
   const handleClearFilters = () => {
-    setEndDate(new Date().toISOString().split("T")[0]);
-    setStartDate(
-      new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
-    );
-    setSelectedLocation("all");
+    setEndDate(new Date().toISOString().split('T')[0]);
+    setStartDate(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+    setSelectedLocation('all');
     setViewMode('auto');
-    setTimeout(fetchHistoricalData, 100); 
+    setTimeout(fetchHistoricalData, 100);
   };
 
   // Handle Legend Click to Toggle Pollutants
@@ -217,7 +218,7 @@ export default function HistoricalDataPage() {
     const pollutantKey = e.dataKey;
     if (!pollutantKey) return;
 
-    setVisiblePollutants((prev) => 
+    setVisiblePollutants((prev) =>
       prev.includes(pollutantKey)
         ? prev.filter((key) => key !== pollutantKey)
         : [...prev, pollutantKey]
@@ -231,11 +232,11 @@ export default function HistoricalDataPage() {
         startDate,
         endDate,
         deviceId: selectedLocation,
-        format: 'csv'
+        format: 'csv',
       });
 
       const res = await fetch(`http://localhost:4000/api/sensor/history/export?${params}`);
-      
+
       if (res.ok) {
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
@@ -247,11 +248,11 @@ export default function HistoricalDataPage() {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       } else {
-        alert("Failed to export data");
+        alert('Failed to export data');
       }
     } catch (error) {
-      console.error("Export failed:", error);
-      alert("Failed to export data");
+      console.error('Export failed:', error);
+      alert('Failed to export data');
     }
   };
 
@@ -261,7 +262,7 @@ export default function HistoricalDataPage() {
         averageAqi: 0,
         peakAqi: 0,
         lowestAqi: 0,
-        mostCommonLevel: "No Data",
+        mostCommonLevel: 'No Data',
       };
     }
 
@@ -272,11 +273,11 @@ export default function HistoricalDataPage() {
     const lowestAqi = Math.min(...aqiValues).toFixed(1);
 
     const getQualityLevel = (aqi: number) => {
-      if (aqi <= 50) return "Good";
-      if (aqi <= 100) return "Moderate";
-      if (aqi <= 200) return "Unhealthy";
-      if (aqi <= 300) return "Very Unhealthy";
-      return "Hazardous";
+      if (aqi <= 50) return 'Good';
+      if (aqi <= 100) return 'Moderate';
+      if (aqi <= 200) return 'Unhealthy';
+      if (aqi <= 300) return 'Very Unhealthy';
+      return 'Hazardous';
     };
 
     const qualityLevels = aqiValues.map(getQualityLevel);
@@ -314,9 +315,7 @@ export default function HistoricalDataPage() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">Udara</h1>
-                <p className="text-sm text-gray-500">
-                  Welcome back, {user?.firstName || "User"}!
-                </p>
+                <p className="text-sm text-gray-500">Welcome back, {user?.firstName || 'User'}!</p>
               </div>
             </div>
           </div>
@@ -337,7 +336,7 @@ export default function HistoricalDataPage() {
         {/* Sidebar */}
         <aside
           className={`${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           } md:translate-x-0 fixed md:static inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transition-transform duration-300 ease-in-out`}
         >
           <nav className="mt-8 px-4">
@@ -348,10 +347,7 @@ export default function HistoricalDataPage() {
                   Dashboard
                 </Link>
               </Button>
-              <Button
-                variant="ghost"
-                className="w-full justify-start bg-blue-50 text-blue-700"
-              >
+              <Button variant="ghost" className="w-full justify-start bg-blue-50 text-blue-700">
                 <Calendar className="mr-3 h-5 w-5" />
                 Historical Air Quality Data
               </Button>
@@ -374,13 +370,12 @@ export default function HistoricalDataPage() {
         {/* Main Content */}
         <main className="flex-1 p-6 space-y-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              Historical Air Quality Data
-            </h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Historical Air Quality Data</h1>
             <p className="text-sm text-gray-600">
-              Showing PM2.5, PM10, and gas pollutants (CO, NO2, O3, SO2) converted from Alphasense sensors
+              Showing PM2.5, PM10, and gas pollutants (CO, NO2, O3, SO2) converted from Alphasense
+              sensors
             </p>
-            
+
             {/* ✅ DATA INFO BADGES */}
             {dataMetadata && (
               <div className="flex items-center gap-3 mt-3">
@@ -393,9 +388,7 @@ export default function HistoricalDataPage() {
                   </Badge>
                 )}
                 {!dataMetadata.aggregated && dataMetadata.total === dataMetadata.returned && (
-                  <Badge className="text-sm bg-green-500 hover:bg-green-600">
-                    All raw data
-                  </Badge>
+                  <Badge className="text-sm bg-green-500 hover:bg-green-600">All raw data</Badge>
                 )}
               </div>
             )}
@@ -405,10 +398,20 @@ export default function HistoricalDataPage() {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
             <strong>💡 View Mode Guide:</strong>
             <ul className="mt-2 space-y-1 ml-4 list-disc">
-              <li><strong>Auto:</strong> Shows all points for small datasets, aggregates for large ones</li>
-              <li><strong>Detailed:</strong> Always shows every raw data point (may be slow for large ranges)</li>
-              <li><strong>Simplified:</strong> Always aggregates by hour/day for cleaner charts</li>
-              <li><strong>CSV Export:</strong> Always exports raw data regardless of view mode</li>
+              <li>
+                <strong>Auto:</strong> Shows all points for small datasets, aggregates for large
+                ones
+              </li>
+              <li>
+                <strong>Detailed:</strong> Always shows every raw data point (may be slow for large
+                ranges)
+              </li>
+              <li>
+                <strong>Simplified:</strong> Always aggregates by hour/day for cleaner charts
+              </li>
+              <li>
+                <strong>CSV Export:</strong> Always exports raw data regardless of view mode
+              </li>
             </ul>
           </div>
 
@@ -437,11 +440,8 @@ export default function HistoricalDataPage() {
                   />
                 </div>
                 <div className="flex-1 min-w-[200px]">
-                  <Label htmlFor="location">Select Device</Label> 
-                  <Select
-                    value={selectedLocation}
-                    onValueChange={setSelectedLocation}
-                  >
+                  <Label htmlFor="location">Select Device</Label>
+                  <Select value={selectedLocation} onValueChange={setSelectedLocation}>
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder="Select a device" />
                     </SelectTrigger>
@@ -455,13 +455,15 @@ export default function HistoricalDataPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 {/* ✅ VIEW MODE SELECTOR */}
                 <div className="flex-1 min-w-[200px]">
                   <Label htmlFor="view-mode">View Mode</Label>
                   <Select
                     value={viewMode}
-                    onValueChange={(value: 'auto' | 'detailed' | 'aggregated') => setViewMode(value)}
+                    onValueChange={(value: 'auto' | 'detailed' | 'aggregated') =>
+                      setViewMode(value)
+                    }
                   >
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder="Select view mode" />
@@ -495,7 +497,7 @@ export default function HistoricalDataPage() {
                     onClick={handleApplyFilters}
                     disabled={loading}
                   >
-                    {loading ? "Loading..." : "Apply Filters"}
+                    {loading ? 'Loading...' : 'Apply Filters'}
                   </Button>
                   <Button
                     variant="outline"
@@ -513,7 +515,7 @@ export default function HistoricalDataPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
-                {["line", "bar", "table"].map((tab) => (
+                {['line', 'bar', 'table'].map((tab) => (
                   <Button
                     key={tab}
                     variant="ghost"
@@ -521,11 +523,11 @@ export default function HistoricalDataPage() {
                     onClick={() => setActiveTab(tab)}
                     className={`${
                       activeTab === tab
-                        ? "bg-white shadow-sm text-gray-900 hover:bg-white"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+                        ? 'bg-white shadow-sm text-gray-900 hover:bg-white'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200'
                     } capitalize`}
                   >
-                    {tab === "line" ? "Line Graph" : tab === "bar" ? "Bar Chart" : "Data Table"}
+                    {tab === 'line' ? 'Line Graph' : tab === 'bar' ? 'Bar Chart' : 'Data Table'}
                   </Button>
                 ))}
               </div>
@@ -540,7 +542,7 @@ export default function HistoricalDataPage() {
                 </div>
               ) : (
                 <>
-                  {activeTab === "line" && (
+                  {activeTab === 'line' && (
                     <div className="h-96">
                       <ChartContainer config={chartConfig} className="h-full">
                         <ResponsiveContainer width="100%" height="100%">
@@ -553,21 +555,21 @@ export default function HistoricalDataPage() {
                               dataKey="date"
                               axisLine={false}
                               tickLine={false}
-                              tick={{ fontSize: 12, fill: "#666" }}
+                              tick={{ fontSize: 12, fill: '#666' }}
                             />
                             <YAxis
                               axisLine={false}
                               tickLine={false}
-                              tick={{ fontSize: 12, fill: "#666" }}
+                              tick={{ fontSize: 12, fill: '#666' }}
                             />
                             <ChartTooltip content={<ChartTooltipContent />} />
-                            
-                            <Legend 
-                                wrapperStyle={{ paddingTop: "20px", cursor: "pointer" }} 
-                                iconType="line" 
-                                onClick={handleLegendClick}
+
+                            <Legend
+                              wrapperStyle={{ paddingTop: '20px', cursor: 'pointer' }}
+                              iconType="line"
+                              onClick={handleLegendClick}
                             />
-                            
+
                             {/* ✅ ALL 6 POLLUTANTS (PM2.5, PM10, CO, NO2, O3, SO2) */}
                             {Object.keys(pollutantColors).map((key) => (
                               <Line
@@ -587,7 +589,7 @@ export default function HistoricalDataPage() {
                     </div>
                   )}
 
-                  {activeTab === "bar" && (
+                  {activeTab === 'bar' && (
                     <div className="h-96">
                       <ChartContainer config={chartConfig} className="h-full">
                         <ResponsiveContainer width="100%" height="100%">
@@ -600,16 +602,16 @@ export default function HistoricalDataPage() {
                               dataKey="date"
                               axisLine={false}
                               tickLine={false}
-                              tick={{ fontSize: 12, fill: "#666" }}
+                              tick={{ fontSize: 12, fill: '#666' }}
                             />
                             <YAxis axisLine={false} tickLine={false} />
                             <ChartTooltip content={<ChartTooltipContent />} />
-                            
-                            <Legend 
-                                wrapperStyle={{ paddingTop: "20px", cursor: "pointer" }} 
-                                onClick={handleLegendClick}
+
+                            <Legend
+                              wrapperStyle={{ paddingTop: '20px', cursor: 'pointer' }}
+                              onClick={handleLegendClick}
                             />
-                            
+
                             {/* ✅ ALL 6 POLLUTANTS (PM2.5, PM10, CO, NO2, O3, SO2) */}
                             {Object.keys(pollutantColors).map((key) => (
                               <Bar
@@ -626,28 +628,35 @@ export default function HistoricalDataPage() {
                     </div>
                   )}
 
-                  {activeTab === "table" && (
+                  {activeTab === 'table' && (
                     <div className="overflow-x-auto max-h-96 overflow-y-auto">
                       <table className="w-full border-collapse">
                         <thead className="sticky top-0 bg-white shadow-sm">
                           <tr className="border-b border-gray-200">
                             <th className="text-left py-3 px-4 font-medium text-gray-900">Date</th>
-                            <th className="text-left py-3 px-4 font-medium text-gray-900">Location</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">
+                              Location
+                            </th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900">PM2.5</th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900">PM10</th>
-                            <th className="text-left py-3 px-4 font-medium text-gray-900">CO (ppm)</th>
-                            <th className="text-left py-3 px-4 font-medium text-gray-900">NO2 (ppb)</th>
-                            <th className="text-left py-3 px-4 font-medium text-gray-900">O3 (ppb)</th>
-                            <th className="text-left py-3 px-4 font-medium text-gray-900">SO2 (ppb)</th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">
+                              CO (ppm)
+                            </th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">
+                              NO2 (ppb)
+                            </th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">
+                              O3 (ppb)
+                            </th>
+                            <th className="text-left py-3 px-4 font-medium text-gray-900">
+                              SO2 (ppb)
+                            </th>
                             <th className="text-left py-3 px-4 font-medium text-gray-900">AQI</th>
                           </tr>
                         </thead>
                         <tbody>
                           {chartData.map((row: any, index) => (
-                            <tr
-                              key={index}
-                              className="border-b border-gray-100 hover:bg-gray-50"
-                            >
+                            <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
                               <td className="py-3 px-4 text-gray-900">{row.date}</td>
                               <td className="py-3 px-4 text-gray-600">{row.location}</td>
                               <td className="py-3 px-4 text-gray-900">{row.pm25.toFixed(1)}</td>
@@ -673,32 +682,24 @@ export default function HistoricalDataPage() {
             <Card>
               <CardContent className="pt-6">
                 <div className="text-sm text-gray-600 mb-1">Average AQI</div>
-                <div className="text-3xl font-bold text-gray-900">
-                  {summaryStats.averageAqi}
-                </div>
+                <div className="text-3xl font-bold text-gray-900">{summaryStats.averageAqi}</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
                 <div className="text-sm text-gray-600 mb-1">Peak AQI</div>
-                <div className="text-3xl font-bold text-gray-900">
-                  {summaryStats.peakAqi}
-                </div>
+                <div className="text-3xl font-bold text-gray-900">{summaryStats.peakAqi}</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
                 <div className="text-sm text-gray-600 mb-1">Lowest AQI</div>
-                <div className="text-3xl font-bold text-gray-900">
-                  {summaryStats.lowestAqi}
-                </div>
+                <div className="text-3xl font-bold text-gray-900">{summaryStats.lowestAqi}</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <div className="text-sm text-gray-600 mb-1">
-                  Most Common Level
-                </div>
+                <div className="text-sm text-gray-600 mb-1">Most Common Level</div>
                 <div className="text-lg font-bold text-gray-900">
                   {summaryStats.mostCommonLevel}
                 </div>
@@ -709,11 +710,7 @@ export default function HistoricalDataPage() {
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-3">
             {/* ✅ CSV EXPORT - Always raw data */}
-            <Button 
-              variant="outline" 
-              className="flex items-center gap-2"
-              onClick={handleExportCSV}
-            >
+            <Button variant="outline" className="flex items-center gap-2" onClick={handleExportCSV}>
               <Download className="h-4 w-4" />
               Download CSV (Raw Data)
             </Button>
