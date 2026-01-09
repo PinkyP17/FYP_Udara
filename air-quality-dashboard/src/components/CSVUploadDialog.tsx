@@ -1,6 +1,7 @@
 // components/CSVUploadDialog.tsx
 'use client';
 
+import { API_BASE_URL } from '@/lib/api';
 import { useState } from 'react';
 import { Upload, FileText, CheckCircle, AlertCircle, Database, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -53,7 +54,7 @@ export default function CSVUploadDialog() {
     setOpen(isOpen);
     if (isOpen && devices.length === 0) {
       try {
-        const response = await fetch('http://localhost:4000/api/devices');
+        const response = await fetch(`${API_BASE_URL}/devices`);
         const data = await response.json();
         setDevices(data.devices || []);
       } catch (err) {
@@ -83,7 +84,7 @@ export default function CSVUploadDialog() {
       const formData = new FormData();
       formData.append('file', fileToValidate);
 
-      const response = await fetch('http://localhost:4000/api/csv-upload/validate', {
+      const response = await fetch(`${API_BASE_URL}/csv-upload/validate`, {
         method: 'POST',
         body: formData,
       });
@@ -128,7 +129,7 @@ export default function CSVUploadDialog() {
       formData.append('deviceName', deviceInfo?.name || selectedDevice);
       formData.append('location', deviceInfo?.location?.address || 'Unknown');
 
-      const response = await fetch('http://localhost:4000/api/csv-upload/upload', {
+      const response = await fetch(`${API_BASE_URL}/csv-upload/upload`, {
         method: 'POST',
         body: formData,
       });

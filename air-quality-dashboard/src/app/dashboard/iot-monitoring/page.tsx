@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import PingModal from '@/components/PingModal';
 import ConfigureModal from '@/components/ConfigureModal';
+import { API_BASE_URL } from '@/lib/api';
 import {
   Wind,
   Calendar,
@@ -88,7 +89,6 @@ export default function IoTMonitoringPage() {
   const [showConfigureModal, setShowConfigureModal] = useState(false);
 
   const { user } = useUser();
-  const API_BASE_URL = 'http://localhost:4000/api';
 
   const fetchDevices = async () => {
     try {

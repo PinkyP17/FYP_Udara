@@ -1,5 +1,6 @@
 'use client';
 
+import { API_BASE_URL } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -97,7 +98,7 @@ export default function HistoricalDataPage() {
   useEffect(() => {
     const fetchDevices = async () => {
       try {
-        const res = await fetch('http://localhost:4000/api/devices');
+        const res = await fetch(`${API_BASE_URL}/devices`)
         if (res.ok) {
           const data = await res.json();
           setDevices(data.devices || []);
@@ -121,7 +122,7 @@ export default function HistoricalDataPage() {
         viewMode: viewMode, // ✅ Pass view mode
       });
 
-      const res = await fetch(`http://localhost:4000/api/sensor/history?${params}`);
+      const res = await fetch(`${API_BASE_URL}/sensor/history?${params}`);
 
       if (res.ok) {
         const response = await res.json();
@@ -236,7 +237,7 @@ export default function HistoricalDataPage() {
         format: 'csv',
       });
 
-      const res = await fetch(`http://localhost:4000/api/sensor/history/export?${params}`);
+      const res = await fetch(`${API_BASE_URL}/sensor/history/export?${params}`);
 
       if (res.ok) {
         const blob = await res.blob();

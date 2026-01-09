@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useUser, UserButton } from '@clerk/nextjs';
+import { API_BASE_URL } from '@/lib/api';
 import {
   Bell,
   Settings,
@@ -156,7 +157,7 @@ export default function ThresholdSettingsPage() {
 
   const fetchSubscriptions = async () => {
     try {
-      const response = await fetch(`http://localhost:4000/api/user/${user?.id}/subscriptions`);
+      const response = await fetch(`${API_BASE_URL}/user/${user?.id}/subscriptions`);
       const data = await response.json();
       if (data.success) {
         setSubscriptions(data.subscriptions);
@@ -173,7 +174,7 @@ export default function ThresholdSettingsPage() {
 
   const fetchAvailableDevices = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/devices');
+      const response = await fetch(`${API_BASE_URL}/devices`);
       const data = await response.json();
       setAvailableDevices(data.devices || []);
     } catch (err) {
@@ -184,7 +185,7 @@ export default function ThresholdSettingsPage() {
   const fetchThresholds = async (deviceId: string) => {
     try {
       const response = await fetch(
-        `http://localhost:4000/api/user/${user?.id}/thresholds/${deviceId}`
+        `${API_BASE_URL}/user/${user?.id}/thresholds/${deviceId}`
       );
       const data = await response.json();
       if (data.success) setThresholds(data.customThresholds);
@@ -196,7 +197,7 @@ export default function ThresholdSettingsPage() {
   const fetchNotificationSettings = async (deviceId: string) => {
     try {
       const response = await fetch(
-        `http://localhost:4000/api/user/${user?.id}/notification-settings/${deviceId}`
+        `${API_BASE_URL}/user/${user?.id}/notification-settings/${deviceId}`
       );
       const data = await response.json();
       if (data.success) setNotificationSettings(data.notificationSettings);
@@ -212,7 +213,7 @@ export default function ThresholdSettingsPage() {
     
     try {
       const response = await fetch(
-        `http://localhost:4000/api/user/${user?.id}/notifications?limit=10`
+        `${API_BASE_URL}/user/${user?.id}/notifications?limit=10`
       );
       const data = await response.json();
       if (data.success) {
@@ -236,7 +237,7 @@ export default function ThresholdSettingsPage() {
     if (!user) return;
     setSubscribing(true);
     try {
-      const response = await fetch(`http://localhost:4000/api/user/${user.id}/subscribe`, {
+      const response = await fetch(`${API_BASE_URL}/user/${user.id}/subscribe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deviceId: device.deviceId, deviceName: device.name }),
@@ -261,7 +262,7 @@ export default function ThresholdSettingsPage() {
     setSaving(true);
     try {
       const response = await fetch(
-        `http://localhost:4000/api/user/${user?.id}/thresholds/${selectedDevice}`,
+        `${API_BASE_URL}/user/${user?.id}/thresholds/${selectedDevice}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -310,7 +311,7 @@ export default function ThresholdSettingsPage() {
     setError("");
     try {
       const response = await fetch(
-        `http://localhost:4000/api/user/${user?.id}/thresholds/${selectedDevice}/reset`,
+        `${API_BASE_URL}/user/${user?.id}/thresholds/${selectedDevice}/reset`,
         { method: "PUT" }
       );
 

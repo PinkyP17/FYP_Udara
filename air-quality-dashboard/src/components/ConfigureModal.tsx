@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/lib/api';
 import { useState, useEffect } from 'react';
 import { X, Save, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -69,7 +70,6 @@ export default function ConfigureModal({ isOpen, onClose, device, onUpdate }: Co
       setError(null);
       setSuccess(null);
 
-      const API_BASE_URL = 'http://localhost:4000/api';
 
       // Prepare update payload
       const payload = {

@@ -1,6 +1,7 @@
 'use client';
 
 import type React from 'react';
+import { API_BASE_URL } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -194,7 +195,7 @@ export default function RegisterPage() {
             name: fullName,
           });
 
-          const mongoResponse = await fetch('http://localhost:4000/api/user', {
+          const mongoResponse = await fetch(`${API_BASE_URL}/user`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

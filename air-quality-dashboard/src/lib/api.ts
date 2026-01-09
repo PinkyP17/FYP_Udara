@@ -102,3 +102,5 @@ export async function getCurrentMetrics(deviceId: string): Promise<CurrentMetric
   if (!response.ok) throw new Error('Failed to fetch metrics');
   return response.json();
 }
+
+export { API_BASE as API_BASE_URL };

@@ -4,6 +4,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { API_BASE_URL } from '@/lib/api';
 import {
   Wind,
   Calendar,
@@ -76,7 +77,6 @@ export default function LogMonitoringPage() {
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
 
-  const API_BASE_URL = 'http://localhost:4000/api';
 
   const fetchLogs = React.useCallback(async () => {
     try {
