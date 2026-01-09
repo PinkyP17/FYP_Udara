@@ -24,6 +24,7 @@ import {
   Search,
   RefreshCw,
   X,
+  CheckCircle2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -109,6 +110,7 @@ interface Notification {
   threshold: number;
   message: string;
   sentAt: string;
+  sentVia?: string[];
   read: boolean;
 }
 
@@ -134,6 +136,8 @@ export default function ThresholdSettingsPage() {
   const [success, setSuccess] = useState('');
   const [showSubscribeDialog, setShowSubscribeDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
   // Fetch data
   useEffect(() => {
@@ -171,7 +175,6 @@ export default function ThresholdSettingsPage() {
     try {
       const response = await fetch('http://localhost:4000/api/devices');
       const data = await response.json();
-      // Added safety check for the .devices key based on your Postman result
       setAvailableDevices(data.devices || []);
     } catch (err) {
       console.error('Error fetching devices:', err);
@@ -202,16 +205,31 @@ export default function ThresholdSettingsPage() {
     }
   };
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (showRefreshIndicator = false) => {
+    if (showRefreshIndicator) {
+      setRefreshing(true);
+    }
+    
     try {
       const response = await fetch(
         `http://localhost:4000/api/user/${user?.id}/notifications?limit=10`
       );
       const data = await response.json();
-      if (data.success) setRecentNotifications(data.notifications);
+      if (data.success) {
+        setRecentNotifications(data.notifications);
+        setLastRefresh(new Date());
+      }
     } catch (err) {
       console.error(err);
+    } finally {
+      if (showRefreshIndicator) {
+        setRefreshing(false);
+      }
     }
+  };
+
+  const handleRefreshNotifications = () => {
+    fetchNotifications(true);
   };
 
   const handleSubscribe = async (device: Device) => {
@@ -281,11 +299,97 @@ export default function ThresholdSettingsPage() {
     return !isAlreadySubbed && (nameMatch || locMatch);
   });
 
-  const getNotificationIcon = (severity: string) => (
-    <AlertCircle
-      className={`h-4 w-4 ${severity === 'critical' ? 'text-red-500' : 'text-yellow-500'}`}
-    />
-  );
+  const handleResetThresholds = async () => {
+    if (!selectedDevice) return;
+
+    if (!confirm("Are you sure you want to reset thresholds to default values?")) {
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `http://localhost:4000/api/user/${user?.id}/thresholds/${selectedDevice}/reset`,
+        { method: "PUT" }
+      );
+
+      const data = await response.json();
+
+      if (data.success) {
+        setThresholds(data.customThresholds);
+        setSuccess("Thresholds reset to default values!");
+        setTimeout(() => setSuccess(""), 3000);
+      } else {
+        setError(data.error || "Failed to reset thresholds");
+      }
+    } catch (err) {
+      console.error("Error resetting thresholds:", err);
+      setError("Failed to connect to the server");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  };
+
+  const getSeverityStyle = (severity: string) => {
+    switch (severity) {
+      case 'critical':
+        return {
+          bg: 'bg-red-50',
+          border: 'border-red-200',
+          badge: 'bg-red-500 text-white',
+          icon: <AlertCircle className="h-4 w-4 text-red-600" />,
+          dot: 'bg-red-500',
+          textColor: 'text-red-900'
+        };
+      case 'warning':
+        return {
+          bg: 'bg-amber-50',
+          border: 'border-amber-200',
+          badge: 'bg-amber-500 text-white',
+          icon: <AlertCircle className="h-4 w-4 text-amber-600" />,
+          dot: 'bg-amber-500',
+          textColor: 'text-amber-900'
+        };
+      default:
+        return {
+          bg: 'bg-blue-50',
+          border: 'border-blue-200',
+          badge: 'bg-blue-500 text-white',
+          icon: <AlertCircle className="h-4 w-4 text-blue-600" />,
+          dot: 'bg-blue-500',
+          textColor: 'text-blue-900'
+        };
+    }
+  };
+
+  const formatMetricName = (metric: string) => {
+    const names: Record<string, string> = {
+      pm2_5: 'PM2.5',
+      pm10: 'PM10',
+      o3: 'O₃',
+      no2: 'NO₂',
+      so2: 'SO₂',
+      co: 'CO',
+      temperature_c: 'Temperature',
+      humidity_pct: 'Humidity'
+    };
+    return names[metric] || metric.toUpperCase();
+  };
 
   if (!isLoaded || loading) {
     return (
@@ -499,15 +603,18 @@ export default function ThresholdSettingsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                          /* Add reset logic if needed */
-                        }}
+                        onClick={handleResetThresholds}
+                        disabled={saving}
                       >
-                        <RotateCcw className="h-4 w-4 mr-2" /> Reset
+                        {saving ? (
+                          <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                          <RotateCcw className="h-4 w-4 mr-2" />
+                        )} 
+                        Reset
                       </Button>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                      {/* Updated mapping to include ALL pollutants and environmental metrics */}
                       {(Object.keys(thresholds) as Array<keyof Thresholds>).map((metric) => (
                         <div key={metric} className="space-y-4">
                           <div className="flex items-center justify-between">
@@ -603,40 +710,173 @@ export default function ThresholdSettingsPage() {
                 )}
               </div>
 
-              {/* Recent Notifications Sidebar */}
+              {/* Recent Notifications Sidebar - IMPROVED */}
               <div className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Recent Notifications</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {recentNotifications.length > 0 ? (
-                      recentNotifications.map((notif) => (
-                        <div
-                          key={notif.notificationId}
-                          className={`p-4 rounded-lg border ${notif.read ? 'bg-white' : 'bg-blue-50 border-blue-100'}`}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <Badge
-                              variant={notif.severity === 'critical' ? 'destructive' : 'secondary'}
-                            >
-                              {notif.metric}
-                            </Badge>
-                            <span className="text-[10px] text-gray-400 uppercase font-bold">
-                              {new Date(notif.sentAt).toLocaleTimeString()}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-700 leading-snug">{notif.message}</p>
+                <Card className="shadow-sm">
+                  <CardHeader className="pb-4 space-y-0">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                          <Bell className="h-5 w-5 text-blue-600" />
                         </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-12 text-gray-400">
-                        <Bell className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                        <p>No recent alerts</p>
+                        <div>
+                          <CardTitle className="text-base">Recent Alerts</CardTitle>
+                        </div>
                       </div>
-                    )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRefreshNotifications}
+                        disabled={refreshing}
+                        className="h-8 w-8 p-0 hover:bg-blue-50"
+                        title="Refresh notifications"
+                      >
+                        <RefreshCw 
+                          className={`h-4 w-4 text-gray-600 ${refreshing ? 'animate-spin' : ''}`} 
+                        />
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  
+                  <CardContent className="space-y-3 pt-0">
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500 pb-2 border-b">
+                      <Clock className="h-3 w-3" />
+                      <span>Updated {getRelativeTime(lastRefresh.toISOString())}</span>
+                    </div>
+
+                    <div className="space-y-3 max-h-[550px] overflow-y-auto pr-1">
+                      {recentNotifications.length > 0 ? (
+                        recentNotifications.map((notif) => {
+                          const style = getSeverityStyle(notif.severity);
+                          
+                          return (
+                            <div
+                              key={notif.notificationId}
+                              className={`
+                                relative rounded-lg border-2 transition-all duration-200
+                                hover:shadow-md group
+                                ${style.bg} ${style.border}
+                                ${notif.read ? 'opacity-75' : ''}
+                              `}
+                            >
+                              {!notif.read && (
+                                <div className="absolute -top-1 -right-1 z-10">
+                                  <div className={`h-3 w-3 rounded-full ${style.dot} ring-2 ring-white`} />
+                                </div>
+                              )}
+                              
+                              <div className="p-3 space-y-2.5">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    {style.icon}
+                                    <Badge className={`${style.badge} text-xs font-bold px-2 py-0.5`}>
+                                      {formatMetricName(notif.metric)}
+                                    </Badge>
+                                  </div>
+                                  <span className="text-[10px] font-medium text-gray-600 whitespace-nowrap">
+                                    {getRelativeTime(notif.sentAt)}
+                                  </span>
+                                </div>
+                                
+                                <div className="flex items-center gap-1.5 text-xs">
+                                  <span className="text-gray-600">From:</span>
+                                  <span className="font-semibold text-gray-800 truncate">
+                                    {notif.deviceId}
+                                  </span>
+                                </div>
+                                
+                                <div className="bg-white/80 backdrop-blur-sm p-2.5 rounded-md border border-gray-200/50">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <div className="space-y-1">
+                                      <div className="flex items-baseline gap-1">
+                                        <span className="text-gray-600">Current:</span>
+                                        <span className={`font-bold text-base ${style.textColor}`}>
+                                          {notif.value}
+                                        </span>
+                                        <span className="text-gray-500 text-[10px]">
+                                          {notif.threshold && typeof notif.value === 'number' ? 
+                                            (notif.value.toString().includes('.') ? 
+                                              (notif.metric === 'co' ? 'ppm' : 'ppb') : 'µg/m³') : ''}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-baseline gap-1">
+                                        <span className="text-gray-600">Limit:</span>
+                                        <span className="font-semibold text-gray-900">
+                                          {notif.threshold}
+                                        </span>
+                                        <span className="text-gray-500 text-[10px]">
+                                          {notif.threshold && typeof notif.value === 'number' ? 
+                                            (notif.value.toString().includes('.') ? 
+                                              (notif.metric === 'co' ? 'ppm' : 'ppb') : 'µg/m³') : ''}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="text-right">
+                                      <div className={`text-lg font-bold ${style.textColor}`}>
+                                        +{Math.round(((notif.value - notif.threshold) / notif.threshold) * 100)}%
+                                      </div>
+                                      <div className="text-[10px] text-gray-500">
+                                        over limit
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-center justify-between pt-1">
+                                  <div className="flex items-center gap-1">
+                                    {notif.sentVia?.includes('email') && (
+                                      <span className="text-[10px] bg-white/70 px-2 py-0.5 rounded text-gray-600">
+                                        📧 Email sent
+                                      </span>
+                                    )}
+                                  </div>
+                                  {notif.read && (
+                                    <div className="flex items-center gap-1 text-[10px] text-gray-500">
+                                      <CheckCircle2 className="h-3 w-3" />
+                                      <span>Read</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="text-center py-12">
+                          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-blue-50 to-blue-100 mb-3">
+                            <Bell className="h-8 w-8 text-blue-500" />
+                          </div>
+                          <p className="text-gray-700 font-medium mb-1">All Clear!</p>
+                          <p className="text-sm text-gray-500">
+                            No alerts at this time
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
+                
+                {recentNotifications.length > 0 && (
+                  <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+                    <CardContent className="pt-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <div className="text-2xl font-bold text-blue-900">
+                            {recentNotifications.filter(n => n.severity === 'critical').length}
+                          </div>
+                          <div className="text-xs text-blue-700">Critical Alerts</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-bold text-amber-900">
+                            {recentNotifications.filter(n => n.severity === 'warning').length}
+                          </div>
+                          <div className="text-xs text-amber-700">Warnings</div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             </div>
           )}
