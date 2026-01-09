@@ -57,6 +57,18 @@ const AirQualityMap = forwardRef<
   const activePopups = useRef<mapboxgl.Popup[]>([]);
   const [mapLoaded, setMapLoaded] = useState(false);
 
+  const selectedLocationRef = useRef<Location | null>(selectedLocation);
+  const onLocationSelectRef = useRef(onLocationSelect);
+  
+  // Keep refs updated
+  useEffect(() => {
+    selectedLocationRef.current = selectedLocation;
+  }, [selectedLocation]);
+  
+  useEffect(() => {
+    onLocationSelectRef.current = onLocationSelect;
+  }, [onLocationSelect]);
+
   // Function to close all active popups
   const closeAllPopups = () => {
     activePopups.current.forEach((popup) => popup.remove());
@@ -89,16 +101,16 @@ const AirQualityMap = forwardRef<
 
     // Add click event to map background to deselect markers
     map.current.on("click", (e) => {
-      const features = map.current!.queryRenderedFeatures(e.point);
-      if (features.length === 0) {
-        closeAllPopups();
-        onLocationSelect(null);
-        map.current?.flyTo({
-          center: [101.6569, 3.1319],
-          zoom: 11,
-          duration: 1000,
-        });
-      }
+      // Check if the click was on a marker (markers intercept pointer events, but just in case)
+      if ((e.originalEvent.target as HTMLElement).closest('.mapboxgl-marker')) return;
+      
+      closeAllPopups();
+      onLocationSelectRef.current(null);
+      map.current?.flyTo({
+        center: [101.6569, 3.1319],
+        zoom: 11,
+        duration: 1000,
+      });
     });
 
     return () => {
@@ -108,15 +120,37 @@ const AirQualityMap = forwardRef<
         map.current = null;
       }
     };
-  }, [onLocationSelect]);
+  }, []); // Only run once on mount
 
-  // Close popups when selection changes
+  // Update visual state of markers when selection changes
   useEffect(() => {
+    if (!map.current || markers.current.length === 0) return;
+    
+    // Update marker styles based on selection
+    markers.current.forEach((marker, index) => {
+      const location = locations[index];
+      const element = marker.getElement();
+      const container = element.querySelector('.marker-container') as HTMLElement;
+      
+      if (container) {
+        if (selectedLocation?.id === location.id) {
+          container.classList.add('selected');
+          container.style.transform = "scale(1.2)";
+          container.style.zIndex = "1000";
+        } else {
+          container.classList.remove('selected');
+          container.style.transform = "scale(1)";
+          container.style.zIndex = "auto";
+        }
+      }
+    });
+
     closeAllPopups();
-  }, [selectedLocation]);
+  }, [selectedLocation, locations]); // Run when selection changes
 
+  // Initialize markers when locations change (and map is loaded)
   useEffect(() => {
-    if (!map.current || !mapLoaded || !locations || locations.length === 0) return;
+    if (!map.current || !mapLoaded || !locations) return;
 
     // Clear existing markers and popups
     markers.current.forEach((marker) => marker.remove());
@@ -137,9 +171,7 @@ const AirQualityMap = forwardRef<
       const markerElement = document.createElement("div");
       markerElement.className = "air-quality-marker";
       markerElement.innerHTML = `
-        <div class="marker-container ${
-          selectedLocation?.id === location.id ? "selected" : ""
-        }" 
+        <div class="marker-container" 
              style="
                width: 48px; 
                height: 48px; 
@@ -155,11 +187,6 @@ const AirQualityMap = forwardRef<
                cursor: pointer; 
                box-shadow: 0 4px 8px rgba(0,0,0,0.3);
                transition: all 0.2s ease;
-               ${
-                 selectedLocation?.id === location.id
-                   ? "transform: scale(1.2); z-index: 1000;"
-                   : ""
-               }
              ">
           ${aqiValue}
         </div>
@@ -178,7 +205,7 @@ const AirQualityMap = forwardRef<
 
       // Add hover effects
       markerElement.addEventListener("mouseenter", () => {
-        if (selectedLocation?.id !== location.id) {
+        if (selectedLocationRef.current?.id !== location.id) {
           const container = markerElement.querySelector(
             ".marker-container"
           ) as HTMLElement;
@@ -189,7 +216,7 @@ const AirQualityMap = forwardRef<
       });
 
       markerElement.addEventListener("mouseleave", () => {
-        if (selectedLocation?.id !== location.id) {
+        if (selectedLocationRef.current?.id !== location.id) {
           const container = markerElement.querySelector(
             ".marker-container"
           ) as HTMLElement;
@@ -206,18 +233,20 @@ const AirQualityMap = forwardRef<
 
       // Add click event
       markerElement.addEventListener("click", (e) => {
-        e.stopPropagation();
+        e.stopPropagation(); // Stop propagation to map click handler
         closeAllPopups();
 
-        if (selectedLocation?.id === location.id) {
-          onLocationSelect(null);
+        const currentSelected = selectedLocationRef.current;
+
+        if (currentSelected?.id === location.id) {
+          onLocationSelectRef.current(null);
           map.current?.flyTo({
             center: [101.6569, 3.1319],
             zoom: 11,
             duration: 1000,
           });
         } else {
-          onLocationSelect(location);
+          onLocationSelectRef.current(location);
           map.current?.flyTo({
             center: [location.lng, location.lat],
             zoom: 13,
@@ -285,7 +314,7 @@ const AirQualityMap = forwardRef<
         maxZoom: 14,
       });
     }
-  }, [locations, selectedLocation, mapLoaded, onLocationSelect]);
+  }, [locations, mapLoaded]); // Re-run only when locations change or map loads
 
   return (
     <div className="relative w-full h-80 rounded-lg overflow-hidden border">

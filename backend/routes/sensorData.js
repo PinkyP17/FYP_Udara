@@ -22,6 +22,7 @@ router.get('/dashboard', async (req, res) => {
         // 2. Calculate Official Malaysian API
         const apiInput = {
             pm10: latestReading?.pm10,
+            pm2_5: latestReading?.pm2_5,
             ...gasData
         };
         const apiResult = calculateMalaysianAPI(apiInput);
@@ -76,6 +77,7 @@ router.get('/:deviceId/latest', async (req, res) => {
     // Combine PM10 from sensor + Gas PPM from conversion
     const apiInput = {
       pm10: latestReading.pm10,      // From PMS5003 sensor
+      pm2_5: latestReading.pm2_5,  // From PMS5003 sensor
       ...gasConcentrations           // Spread the calculated gas PPMs (NO2_ppm, etc.)
     };
 
@@ -128,10 +130,10 @@ router.get('/:deviceId/trends', async (req, res) => {
         timestamp: point.timestamp,
         time: point.hour,
         pm1_0: point.pm1_0,
-        pm2_5: point.pm2_5,
+        pm25: point.pm2_5, // Frontend expects 'pm25' (no underscore)
         pm10: point.pm10,
-        temperature_c: point.temperature_c,
-        humidity_pct: point.humidity_pct,
+        temperature: point.temperature_c, // Frontend expects 'temperature'
+        humidity: point.humidity_pct, // Frontend expects 'humidity'
         pressure_hpa: point.pressure_hpa,
         no2: gasData.NO2_ppb,
         o3: gasData.O3_ppb,
@@ -338,8 +340,15 @@ router.get('/history', async (req, res) => {
       // Process each individual reading
       const enrichedData = rawData.map(reading => {
         const device = deviceMap[reading.metadata.device_id];
-        const aqi = calculateSimpleAQI(reading.pm2_5);
         const gasData = processAllGases(reading.alphasense_voltages || {});
+
+        // Calculate Malaysian API
+        const apiInput = {
+          pm10: reading.pm10,
+          pm2_5: reading.pm2_5,
+          ...gasData // Contains NO2_ppm, O3_ppm, etc.
+        };
+        const apiResult = calculateMalaysianAPI(apiInput);
         
         return {
           timestamp: reading.metadata.timestamp_server,
@@ -371,8 +380,8 @@ router.get('/history', async (req, res) => {
             location: device.location
           } : null,
           
-          aqi: aqi.value,
-          aqi_status: aqi.status
+          aqi: apiResult.value,
+          aqi_status: apiResult.status
         };
       });
       
@@ -469,7 +478,6 @@ router.get('/history', async (req, res) => {
     
     const enrichedData = aggregatedData.map(reading => {
       const device = deviceMap[reading.device_id];
-      const aqi = calculateSimpleAQI(reading.pm2_5);
       
       const gasData = processAllGases({
         SN1_WE_V: reading.SN1_WE_V,
@@ -481,6 +489,14 @@ router.get('/history', async (req, res) => {
         SN4_WE_V: reading.SN4_WE_V,
         SN4_AE_V: reading.SN4_AE_V
       });
+
+      // Calculate Malaysian API
+      const apiInput = {
+        pm10: reading.pm10,
+        pm2_5: reading.pm2_5,
+        ...gasData
+      };
+      const apiResult = calculateMalaysianAPI(apiInput);
       
       return {
         timestamp: reading.timestamp,
@@ -512,8 +528,8 @@ router.get('/history', async (req, res) => {
           location: device.location
         } : null,
         
-        aqi: aqi.value,
-        aqi_status: aqi.status
+        aqi: apiResult.value,
+        aqi_status: apiResult.status
       };
     });
     
@@ -570,7 +586,13 @@ router.get('/history/export', async (req, res) => {
     
     const enrichedData = rawData.map(reading => {
       const gasData = processAllGases(reading.alphasense_voltages || {});
-      const aqi = calculateSimpleAQI(reading.pm2_5);
+      
+      const apiInput = {
+        pm10: reading.pm10,
+        pm2_5: reading.pm2_5,
+        ...gasData
+      };
+      const apiResult = calculateMalaysianAPI(apiInput);
       
       return {
         timestamp: reading.metadata.timestamp_server,
@@ -586,8 +608,8 @@ router.get('/history/export', async (req, res) => {
         NO2_ppb: gasData.NO2_ppb,
         O3_ppb: gasData.O3_ppb,
         SO2_ppb: gasData.SO2_ppb,
-        aqi: aqi.value,
-        aqi_status: aqi.status
+        aqi: apiResult.value,
+        aqi_status: apiResult.status
       };
     });
     
@@ -621,32 +643,6 @@ router.get('/history/export', async (req, res) => {
   }
 });
 
-// Helper function to calculate simple AQI from PM2.5
-function calculateSimpleAQI(pm25) {
-  if (!pm25) return { value: 0, status: 'good' };
-  
-  const breakpoints = [
-    { min: 0, max: 12.0, aqiMin: 0, aqiMax: 50, status: 'good' },
-    { min: 12.1, max: 35.4, aqiMin: 51, aqiMax: 100, status: 'moderate' },
-    { min: 35.5, max: 55.4, aqiMin: 101, aqiMax: 150, status: 'unhealthy' },
-    { min: 55.5, max: 150.4, aqiMin: 151, aqiMax: 200, status: 'unhealthy' },
-    { min: 150.5, max: 250.4, aqiMin: 201, aqiMax: 300, status: 'very unhealthy' },
-    { min: 250.5, max: 500, aqiMin: 301, aqiMax: 500, status: 'hazardous' }
-  ];
-  
-  const breakpoint = breakpoints.find(bp => pm25 >= bp.min && pm25 <= bp.max);
-  
-  if (!breakpoint) {
-    return { value: 500, status: 'hazardous' };
-  }
-  
-  const aqi = Math.round(
-    ((breakpoint.aqiMax - breakpoint.aqiMin) / (breakpoint.max - breakpoint.min)) *
-    (pm25 - breakpoint.min) + breakpoint.aqiMin
-  );
-  
-  return { value: aqi, status: breakpoint.status };
-}
 
 // Helper function to get pollutant status
 function getPollutantStatus(pollutant, value) {

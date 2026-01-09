@@ -1,8 +1,5 @@
 "use client";
 
-//TODO - Fix resizing issues, when data dont have loks okay, when data has it shrinks for whatreve ereason
-
-
 import {
   Card,
   CardContent,
@@ -59,7 +56,6 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 
-// Import API functions
 import { 
   getDashboardData, 
   getDeviceLatest, 
@@ -84,12 +80,12 @@ interface WeatherData {
 }
 
 const pollutantColors = {
-  pm25: "#ef4444",      // Red
-  pm10: "#3b82f6",      // Blue
-  co: "#06b6d4",        // Cyan
-  no2: "#6b7280",       // Gray
-  o3: "#f59e0b",        // Amber
-  so2: "#10b981",       // Emerald
+  pm25: "#ef4444",
+  pm10: "#3b82f6",
+  co: "#06b6d4",
+  no2: "#6b7280",
+  o3: "#f59e0b",
+  so2: "#10b981",
   temperature: "#10b981",
   humidity: "#8b5cf6",
 };
@@ -106,6 +102,10 @@ const getStatusBadgeColor = (status: string) => {
       return "bg-red-100 text-red-800";
     case "hazardous":
       return "bg-purple-100 text-purple-800";
+    case "emergency":
+      return "bg-red-900 text-white";
+    case "no data":
+      return "bg-gray-100 text-gray-800";
     default:
       return "bg-gray-100 text-gray-800";
   }
@@ -126,7 +126,6 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<DashboardDevice | null>(null);
   
-  // Real data state
   const [devices, setDevices] = useState<DashboardDevice[]>([]);
   const [currentMetrics, setCurrentMetrics] = useState<CurrentMetrics | null>(null);
   const [trendData, setTrendData] = useState<any[]>([]);
@@ -134,15 +133,15 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
 
   const [visiblePollutants, setVisiblePollutants] = useState({
-  pm25: true,
-  pm10: true,
-  co: true,
-  no2: true,
-  o3: true,
-  so2: true,
-  temperature: true,
-  humidity: true,
-});
+    pm25: true,
+    pm10: true,
+    co: true,
+    no2: true,
+    o3: true,
+    so2: true,
+    temperature: true,
+    humidity: true,
+  });
 
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState<boolean>(false);
@@ -154,7 +153,6 @@ export default function Dashboard() {
   const { user } = useUser();
   const mapRef = useRef<{ closeAllPopups: () => void } | null>(null);
 
-  // Fetch dashboard data on mount
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
@@ -174,7 +172,6 @@ export default function Dashboard() {
     fetchDashboard();
   }, []);
 
-  // Auto-select first device when devices are loaded
   useEffect(() => {
     if (devices.length > 0 && !selectedLocation) {
       setSelectedLocation(devices[0]);
@@ -182,24 +179,20 @@ export default function Dashboard() {
     }
   }, [devices, selectedLocation]);
 
-  // Fetch device details when selected
   useEffect(() => {
     if (selectedLocation) {
       const fetchDeviceData = async () => {
         try {
           console.log('Fetching data for device:', selectedLocation.deviceId);
           
-          // Get current metrics
           const metrics = await getCurrentMetrics(selectedLocation.deviceId);
           setCurrentMetrics(metrics);
           console.log('Metrics loaded:', metrics);
           
-          // Get trend data
           const trends = await getDeviceTrends(selectedLocation.deviceId, 24);
           setTrendData(trends.data);
           console.log('Trends loaded:', trends);
           
-          // Fetch weather for this location
           fetchWeatherData(
             selectedLocation.lat,
             selectedLocation.lng,
@@ -212,14 +205,12 @@ export default function Dashboard() {
 
       fetchDeviceData();
     } else {
-      // When no device selected, show default location weather
       fetchWeatherData(3.1319, 101.6569, "University Malaya");
       setCurrentMetrics(null);
       setTrendData([]);
     }
   }, [selectedLocation]);
 
-  // Weather fetch function
   const fetchWeatherData = async (lat: number, lng: number, locationName: string) => {
     if (!WEATHER_API_KEY) {
       setWeatherError("API key not configured");
@@ -261,7 +252,6 @@ export default function Dashboard() {
     }
   };
 
-  // Auto-refresh effect
   useEffect(() => {
     if (autoRefreshInterval) {
       intervalRef.current = setInterval(() => {
@@ -285,12 +275,10 @@ export default function Dashboard() {
   }, [autoRefreshInterval, selectedLocation]);
 
   const handleManualRefresh = async () => {
-    // Refresh dashboard data
     try {
       const data = await getDashboardData();
       setDevices(data);
       
-      // Refresh selected device data if any
       if (selectedLocation) {
         const metrics = await getCurrentMetrics(selectedLocation.deviceId);
         setCurrentMetrics(metrics);
@@ -299,7 +287,6 @@ export default function Dashboard() {
         setTrendData(trends.data);
       }
       
-      // Refresh weather
       if (selectedLocation) {
         fetchWeatherData(
           selectedLocation.lat,
@@ -333,34 +320,13 @@ export default function Dashboard() {
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
-  // Calculate average AQI
-  const averageAQI = useMemo(() => {
-    if (selectedLocation && selectedLocation.aqi) {
-      return selectedLocation.aqi.value;
-    }
-    
-    if (devices.length === 0) return 0;
-    
-    const validAQIs = devices.filter(d => d.aqi).map(d => d.aqi!.value);
-    if (validAQIs.length === 0) return 0;
-    
-    return Math.round(
-      validAQIs.reduce((sum, aqi) => sum + aqi, 0) / validAQIs.length
-    );
-  }, [selectedLocation, devices]);
+  const currentAQI = useMemo(() => {
+    return selectedLocation?.aqi?.value ?? null;
+  }, [selectedLocation]);
 
   const aqiStatus = useMemo(() => {
-    if (selectedLocation && selectedLocation.aqi) {
-      return selectedLocation.aqi.status;
-    }
-    
-    const aqi = averageAQI;
-    if (aqi <= 50) return "good";
-    if (aqi <= 100) return "moderate";
-    if (aqi <= 150) return "unhealthy";
-    if (aqi <= 200) return "very unhealthy";
-    return "hazardous";
-  }, [selectedLocation, averageAQI]);
+    return selectedLocation?.aqi?.status ?? "No Data";
+  }, [selectedLocation]);
 
   const togglePollutant = (pollutant: string) => {
     setVisiblePollutants((prev) => ({
@@ -398,7 +364,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center space-x-4">
@@ -446,7 +411,6 @@ export default function Dashboard() {
       </header>
 
       <div className="flex">
-        {/* Sidebar */}
         <aside
           className={`${
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -489,9 +453,7 @@ export default function Dashboard() {
           </nav>
         </aside>
 
-        {/* Main Content */}
         <main className="flex-1 p-6 space-y-6">
-          {/* Show message if no devices */}
           {devices.length === 0 && (
             <Card>
               <CardContent className="py-8">
@@ -512,9 +474,7 @@ export default function Dashboard() {
 
           {devices.length > 0 && (
             <>
-              {/* Top Row: Map and AQI/Weather */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Map Section */}
                 <Card className="lg:col-span-2">
                   <CardHeader>
                     <CardTitle>Air Quality Map</CardTitle>
@@ -530,7 +490,6 @@ export default function Dashboard() {
                       onLocationSelect={setSelectedLocation}
                     />
 
-                    {/* Selected location info */}
                     <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
                       <div className="flex items-center justify-between">
                         <div>
@@ -539,26 +498,33 @@ export default function Dashboard() {
                               ? selectedLocation.name
                               : "Overview - All Devices"}
                           </h4>
-                          <p className="text-sm text-gray-600">
-                            AQI: {averageAQI}
-                            {!selectedLocation && devices.length > 1 && " (average)"}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {selectedLocation
-                              ? `Last updated: ${selectedLocation.lastUpdate ? new Date(selectedLocation.lastUpdate).toLocaleTimeString() : 'N/A'}`
-                              : "Click any marker to view specific device data"}
-                          </p>
+                          {selectedLocation && currentAQI !== null ? (
+                            <>
+                              <p className="text-sm text-gray-600">
+                                AQI: {currentAQI}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Last updated: {selectedLocation.lastUpdate 
+                                  ? new Date(selectedLocation.lastUpdate).toLocaleTimeString() 
+                                  : 'N/A'}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Click any marker to view device air quality data
+                            </p>
+                          )}
                         </div>
                         <div className="flex items-center space-x-3">
-                          <div className="text-right">
-                            <Badge
-                              className={`${getStatusBadgeColor(
-                                aqiStatus
-                              )} text-sm px-3 py-1`}
-                            >
-                              {aqiStatus}
-                            </Badge>
-                          </div>
+                          {selectedLocation && currentAQI !== null && (
+                            <div className="text-right">
+                              <Badge
+                                className={`${getStatusBadgeColor(aqiStatus)} text-sm px-3 py-1`}
+                              >
+                                {aqiStatus}
+                              </Badge>
+                            </div>
+                          )}
                           {selectedLocation && (
                             <Button
                               variant="ghost"
@@ -581,44 +547,56 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
 
-                {/* AQI and Weather */}
                 <div className="space-y-6">
-                  {/* AQI Overview */}
                   <Card>
                     <CardHeader>
-                      <CardTitle>Air Quality Index</CardTitle>
+                      <CardTitle>Air Pollutant Index</CardTitle>
                       <CardDescription>
                         {selectedLocation
                           ? selectedLocation.name
-                          : devices.length > 1 ? "Average across all devices" : devices[0]?.name}
+                          : "Select a device to view API"}
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="text-center space-y-4">
-                        <div className="text-4xl font-bold text-gray-900">
-                          {averageAQI}
-                        </div>
-                        <Badge
-                          className={getStatusBadgeColor(aqiStatus)}
-                          variant="secondary"
-                        >
-                          {aqiStatus}
-                        </Badge>
-                        <div className="space-y-2">
-                          <Progress
-                            value={(averageAQI / 300) * 100}
-                            className="h-2"
-                          />
-                          <div className="flex justify-between text-xs text-gray-600">
-                            <span>Good</span>
-                            <span>Hazardous</span>
+                      {selectedLocation && currentAQI !== null ? (
+                        <div className="text-center space-y-4">
+                          <div className="text-4xl font-bold text-gray-900">
+                            {currentAQI}
+                          </div>
+                          <Badge
+                            className={getStatusBadgeColor(aqiStatus)}
+                            variant="secondary"
+                          >
+                            {aqiStatus}
+                          </Badge>
+                          {selectedLocation.aqi?.predominant && (
+                            <div className="text-sm text-gray-600">
+                              Predominant: {selectedLocation.aqi.predominant}
+                            </div>
+                          )}
+                          <div className="space-y-2">
+                            <Progress
+                              value={(currentAQI / 500) * 100}
+                              className="h-2"
+                            />
+                            <div className="flex justify-between text-xs text-gray-600">
+                              <span>Good (0)</span>
+                              <span>Moderate (100)</span>
+                              <span>Hazardous (500)</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <Wind className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                          <p className="text-sm text-gray-500">
+                            Select a device on the map to view its Air Pollutant Index
+                          </p>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
 
-                  {/* Weather Conditions */}
                   <Card>
                     <CardHeader>
                       <div className="flex items-center justify-between">
@@ -723,7 +701,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Middle Row: Pollutant Details */}
               <Card>
                 <CardHeader>
                   <CardTitle>Current Readings</CardTitle>
@@ -767,41 +744,40 @@ export default function Dashboard() {
                       ))}
                     </div>
                   ) : (
-                    // Empty state when no device selected
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {['PM2.5', 'PM10', 'CO', 'NO2', 'O3', 'SO2', 'Temperature', 'Humidity'].map((metric) => (
-                      <div
-                        key={metric}
-                        className="text-center p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="text-sm font-medium uppercase tracking-wide text-gray-400">
-                            {metric}
-                          </h4>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="text-2xl font-bold text-gray-300">--</div>
-                          <div className="text-xs text-gray-400">
-                            {/* Logic to determine unit based on metric name */}
-                            {metric.includes('PM') ? 'µg/m³' : 
-                             metric === 'Temperature' ? '°C' :
-                             metric === 'Humidity' ? '%' : 'ppm'}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                      {['PM1.0', 'PM2.5', 'PM10', 'CO', 'NO2', 'O3', 'SO2', 'Temperature', 'Humidity', 'Pressure'].map((metric) => (
+                        <div
+                          key={metric}
+                          className="text-center p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-medium uppercase tracking-wide text-gray-400">
+                              {metric}
+                            </h4>
                           </div>
-                          <Badge
-                            className="bg-gray-100 text-gray-400 text-xs"
-                            variant="secondary"
-                          >
-                            No data
-                          </Badge>
+                          <div className="space-y-2">
+                            <div className="text-2xl font-bold text-gray-300">--</div>
+                            <div className="text-xs text-gray-400">
+                              {/* Logic to determine unit based on metric name */}
+                              {metric.includes('PM') ? 'µg/m³' : 
+                               metric === 'Temperature' ? '°C' :
+                               metric === 'Humidity' ? '%' : 
+                               metric === 'Pressure' ? 'hPa' : 'ppm'}
+                            </div>
+                            <Badge
+                              className="bg-gray-100 text-gray-400 text-xs"
+                              variant="secondary"
+                            >
+                              No data
+                            </Badge>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
                   )}
                 </CardContent>
               </Card>
 
-              {/* Bottom Row: Trend Graph */}
               <Card>
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -876,7 +852,6 @@ export default function Dashboard() {
                       </ResponsiveContainer>
                     </ChartContainer>
                   ) : (
-                    // Empty state when no device selected
                     <div className="h-80 flex items-center justify-center border-2 border-dashed border-gray-200 rounded-lg bg-gray-50">
                       <div className="text-center">
                         <TrendingUp className="h-12 w-12 text-gray-300 mx-auto mb-4" />
